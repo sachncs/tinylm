@@ -219,7 +219,7 @@ class Layers:
             self.net.zero_grad()
         return Norms(
             residual=tuple(float(r.pow(2).mean().sqrt()) for r in residual),
-            alpha=tuple(float(m.alpha) for m, _ in seen),
+            alpha=tuple(float(m.alpha.detach()) for m, _ in seen),
             saturation=tuple(
                 float(((m.alpha * x).abs() > SATURATION).float().mean())
                 for m, x in seen
