@@ -42,7 +42,7 @@ def test_verify_accepts_intact_file(tmp_path: pathlib.Path):
         (b"", manifest.Entry("a.txt", sha(b"x"), 1), "empty"),
         (
             b"\xff\xfe\xfa bad\n",
-            manifest.Entry("a.txt", sha(b"\xff\xfe\xfa bad\n"), 9),
+            manifest.Entry("a.txt", sha(b"\xff\xfe\xfa bad\n"), 8),
             "utf-8",
         ),
     ],
