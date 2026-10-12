@@ -1,0 +1,28 @@
+# Base for the 1-epoch factor screen. Every screened setting is overridden per
+# run by scripts/screen.py; values here only cover what the factors leave alone.
+name = "screen"
+data = "runs/small8k"
+out = "runs/screen/base"
+evals = ["data/evals/evaluation_data/fast_eval/blimp_fast"]
+taus = [1.0]
+
+[model]
+max_seq_len = 256
+d_model = 192
+n_layers = 6
+n_heads = 4
+window = 64
+global_every = 1
+
+[train]
+seq_len = 256
+batch = 32
+lr = 0.002
+floor = 0.1
+warmup = 200
+decay = 0.1
+clip = 1.0
+epochs = 1
+seed = 0
+device = "mps"
+every = 1000

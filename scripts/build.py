@@ -6,24 +6,23 @@ from tinylm.clean import Options
 from tinylm.offline import Offline
 from tinylm.prepare import Prepare
 
-VOCAB = 8192
 RUNS = pathlib.Path("runs")
-CORPORA = ("small", "strict")
+STORES = (("small", 4096), ("small", 8192), ("small", 16384), ("strict", 8192))
 
 
 def main() -> None:
-    """Prepares each corpus with no network access."""
-    prepare = Prepare(
-        vocab=VOCAB, kind="bpe", block=200, every=100, options=Options()
-    )
+    """Prepares each corpus and vocabulary with no network access."""
     with Offline():
-        for name in CORPORA:
-            out = RUNS / f"{name}{VOCAB // 1024}k"
+        for name, vocab in STORES:
+            out = RUNS / f"{name}{vocab // 1024}k"
             if out.exists():
-                print(f"{name}: exists, skipping")
+                print(f"{out}: exists, kept")
                 continue
+            prepare = Prepare(
+                vocab=vocab, kind="bpe", block=200, every=100, options=Options()
+            )
             stats = prepare.run(pathlib.Path("data") / name, out)
-            print(name, stats.train_tokens, stats.dev_tokens)
+            print(out, stats.train_tokens, stats.dev_tokens)
 
 
 if __name__ == "__main__":
