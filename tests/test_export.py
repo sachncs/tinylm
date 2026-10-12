@@ -43,8 +43,9 @@ def net(**overrides: Any) -> model.TinyLM:
         {"tie_embeddings": False},
         {"dropout": 0.2},
         {"codebook_sizes": (48, 24, 12)},
+        {"recency": True, "exclusive": (1, 2)},
     ],
-    ids=["default", "relu-dyt", "untied", "dropout", "codebooks"],
+    ids=["default", "relu-dyt", "untied", "dropout", "codebooks", "xsa"],
 )
 def test_every_option_reloads_with_identical_logits(
     tmp_path: pathlib.Path, overrides: dict[str, Any]

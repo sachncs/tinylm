@@ -453,3 +453,66 @@ class TestRecency:
         torch.testing.assert_close(
             torch.compile(net)(batch()), net(batch()), rtol=1e-4, atol=1e-5
         )
+
+
+class TestExclusive:
+    """Exclusive self attention: output orthogonal to the token's own value."""
+
+    def test_exclude_removes_exactly_the_component_along_v(self):
+        generator = torch.Generator().manual_seed(1)
+        out = torch.randn(2, 3, 5, 8, generator=generator)
+        v = torch.randn(2, 3, 5, 8, generator=generator)
+        result = model.exclude(out, v)
+        assert float((result * v).sum(-1).abs().max()) < 1e-5
+        torch.testing.assert_close(model.exclude(result, v), result)
+
+    def test_exclude_leaves_a_zero_value_vector_alone(self):
+        out = torch.ones(1, 1, 2, 4)
+        assert torch.equal(model.exclude(out, torch.zeros(1, 1, 2, 4)), out)
+
+    def test_a_single_token_attends_only_to_itself_so_nothing_remains(self):
+        net = make_net(exclusive=(0, 1, 2, 3))
+        attn = attentions(net)[0]
+        hidden = torch.randn(
+            2, 1, 32, generator=torch.Generator().manual_seed(2)
+        )
+        assert float(attn(hidden, None, True).detach().abs().max()) < 1e-6
+        plain = attentions(make_net())[0]
+        assert float(plain(hidden, None, True).detach().abs().max()) > 1e-4
+
+    def test_changes_the_output_adds_no_parameters_and_stays_causal(self):
+        plain, xsa = make_net(), make_net(exclusive=(1, 2))
+        assert model.count(plain) == model.count(xsa)
+        xsa.load_state_dict(plain.state_dict())
+        assert not torch.allclose(plain(batch()), xsa(batch()))
+        changed = batch().clone()
+        changed[:, -1] = (changed[:, -1] + 1) % 64
+        torch.testing.assert_close(xsa(changed)[:, :-1], xsa(batch())[:, :-1])
+
+    def test_only_the_listed_layers_are_exclusive(self):
+        net = make_net(exclusive=(1, 2))
+        assert [a.exclusive for a in attentions(net)] == [
+            False,
+            True,
+            True,
+            False,
+        ]
+
+    def test_combines_with_local_windows_recency_and_bidirectional_use(self):
+        net = make_net(exclusive=(1, 2), recency=True)
+        assert net(batch(), causal=False).shape == (2, 12, 64)
+        assert net(batch(), local_window=3).shape == (2, 12, 64)
+
+    @pytest.mark.parametrize("bad", [(4,), (-1,), (1, 1), (0.5,), ("a",)])
+    def test_invalid_layer_lists_are_rejected(self, bad: tuple[Any, ...]):
+        with pytest.raises(ValueError, match="exclusive"):
+            make_config(exclusive=bad)
+
+    def test_list_input_is_normalised_to_a_tuple(self):
+        assert make_config(exclusive=[2, 1]).exclusive == (1, 2)
+
+    def test_compiled_forward_matches_eager(self):
+        net = make_net(exclusive=(1, 2))
+        torch.testing.assert_close(
+            torch.compile(net)(batch()), net(batch()), rtol=1e-4, atol=1e-5
+        )

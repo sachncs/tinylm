@@ -1,0 +1,20 @@
+# Exclusive self attention (arXiv:2603.09078) in the middle layers (2-5 of 8)
+# of the frozen candidate, paired with d00s* (same seeds, 4 epochs). The last
+# run combines it with the recency penalty.
+base = "configs/small.toml"
+
+[[run]]
+name = "x00s0"
+set = ["train.epochs=4", "train.seed=0", "model.exclusive=[2,3,4,5]", "train.compile=true"]
+
+[[run]]
+name = "x00s1"
+set = ["train.epochs=4", "train.seed=1", "model.exclusive=[2,3,4,5]", "train.compile=true"]
+
+[[run]]
+name = "x00s2"
+set = ["train.epochs=4", "train.seed=2", "model.exclusive=[2,3,4,5]", "train.compile=true"]
+
+[[run]]
+name = "xr0s0"
+set = ["train.epochs=4", "train.seed=0", "model.exclusive=[2,3,4,5]", "model.recency=true", "train.compile=true"]

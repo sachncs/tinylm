@@ -5,6 +5,7 @@ import functools
 
 import torch
 from torch import nn
+from torch.nn import functional
 from torch.nn.functional import scaled_dot_product_attention
 
 PARAMETER_BUDGET = 50_000_000
@@ -21,6 +22,7 @@ NON_POSITIVE_FIELDS = (
     "norm",
     "codebook_sizes",
     "recency",
+    "exclusive",
 )
 
 
@@ -48,6 +50,9 @@ class Config:
         recency: Add a learned per-head penalty slope * distance to attention
             scores. Slopes start at 0 (plain attention) and cannot go below 0,
             so each head learns how local to be.
+        exclusive: Indices of layers using exclusive self attention (Zhai,
+            2026, arXiv:2603.09078): each head's output has its component
+            along the token's own value vector removed.
     """
 
     vocab_size: int = 16_384
@@ -63,6 +68,7 @@ class Config:
     norm: str = "rms"
     codebook_sizes: tuple[int, ...] = ()
     recency: bool = False
+    exclusive: tuple[int, ...] = ()
 
     def __post_init__(self) -> None:
         """Validates field ranges and head divisibility."""
@@ -77,6 +83,14 @@ class Config:
             raise ValueError("codebook_sizes must all be positive")
         if self.codebook_sizes and self.n_layers <= len(self.codebook_sizes):
             raise ValueError("n_layers must exceed the number of codebooks")
+        layers = tuple(self.exclusive)
+        if not all(
+            type(i) is int and 0 <= i < self.n_layers for i in layers
+        ) or len(set(layers)) != len(layers):
+            raise ValueError(
+                "exclusive must list distinct layer indices in [0, n_layers)"
+            )
+        object.__setattr__(self, "exclusive", tuple(sorted(layers)))
         if self.recency not in (True, False):
             raise ValueError("recency must be a bool")
         if self.activation not in ACTIVATIONS:
@@ -186,12 +200,22 @@ class Codebook(nn.Module):
         return x + torch.softmax(scores, dim=-1) @ self.codes
 
 
+def exclude(out: torch.Tensor, v: torch.Tensor) -> torch.Tensor:
+    """Removes from out its component along v (over the last dimension).
+
+    A zero v has no direction, so out is returned unchanged.
+    """
+    direction = functional.normalize(v, dim=-1)
+    return out - (out * direction).sum(-1, keepdim=True) * direction
+
+
 class Attention(nn.Module):
     """Multi-head self-attention under an explicit visibility mask."""
 
-    def __init__(self, config: Config) -> None:
+    def __init__(self, config: Config, exclusive: bool = False) -> None:
         super().__init__()
         self.n_heads = config.n_heads
+        self.exclusive = exclusive
         self.qkv = nn.Linear(config.d_model, 3 * config.d_model, bias=False)
         self.proj = nn.Linear(config.d_model, config.d_model, bias=False)
         self.slope = (
@@ -240,17 +264,19 @@ class Attention(nn.Module):
         out = scaled_dot_product_attention(
             q, k, v, attn_mask=mask, is_causal=fused
         )
+        if self.exclusive:
+            out = exclude(out, v)
         return self.proj(out.transpose(1, 2).reshape(batch, length, width))
 
 
 class Block(nn.Module):
     """Pre-norm transformer block."""
 
-    def __init__(self, config: Config) -> None:
+    def __init__(self, config: Config, exclusive: bool = False) -> None:
         super().__init__()
         hidden = FFN_MULTIPLIER * config.d_model
         self.attn_norm = norm(config)
-        self.attn = Attention(config)
+        self.attn = Attention(config, exclusive)
         self.ffn_norm = norm(config)
         self.act = nn.ReLU() if config.activation == "relu" else nn.GELU()
         self.ffn_in = nn.Linear(config.d_model, hidden, bias=False)
@@ -279,7 +305,9 @@ class TinyLM(nn.Module):
         self.config = config
         self.tok_emb = nn.Embedding(config.vocab_size, config.d_model)
         self.pos_emb = nn.Embedding(config.max_seq_len, config.d_model)
-        blocks = [Block(config) for _ in range(config.n_layers)]
+        blocks = [
+            Block(config, i in config.exclusive) for i in range(config.n_layers)
+        ]
         self.blocks = nn.ModuleList(blocks)
         self.codebooks = nn.ModuleList(
             Codebook(size, config.d_model, config)
