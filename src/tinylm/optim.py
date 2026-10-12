@@ -56,11 +56,7 @@ def partition(
     """
     matrices: list[torch.nn.Parameter] = []
     others: list[torch.nn.Parameter] = []
-    seen: set[int] = set()
     for name, param in net.named_parameters():
-        if id(param) in seen:
-            continue
-        seen.add(id(param))
         hidden = param.ndim == MATRIX_NDIM and name.startswith("blocks.")
         (matrices if hidden else others).append(param)
     return matrices, others

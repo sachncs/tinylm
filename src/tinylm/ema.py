@@ -29,12 +29,9 @@ class Average:
         """Moves the average one step towards the model's current weights."""
         with torch.no_grad():
             for key, value in net.state_dict().items():
-                if value.is_floating_point():
-                    self.shadow[key].mul_(self.decay).add_(
-                        value.detach(), alpha=1.0 - self.decay
-                    )
-                else:
-                    self.shadow[key].copy_(value)
+                self.shadow[key].mul_(self.decay).add_(
+                    value.detach(), alpha=1.0 - self.decay
+                )
 
     @contextlib.contextmanager
     def applied(self, net: model.TinyLM) -> collections.abc.Generator[None]:

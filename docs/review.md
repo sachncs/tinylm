@@ -13,8 +13,8 @@ FIXED (with commit), OPEN (planned), CHECKED (suspected, measured, no defect).
 | E3 | P1 | Results carried no provenance (git revision, dirty flag, library versions, device, config and data fingerprints). | `Metrics` had no such fields. | FIXED (`Provenance` in every `metrics.json`) |
 | E4 | P2 | Output is `print` only: no structured logs, no run log file. | 1 `print` in src, 0 `logging`. | OPEN |
 | E5 | P2 | 17 type/lint suppressions remain; each hides a check. | `grep -rn "pyright: ignore\|noqa"` = 17. | OPEN (justify or remove each) |
-| E6 | P2 | The quality gate is a script, not enforced: a red commit is possible (already happened twice). | history. | OPEN (pre-commit hook) |
-| E7 | P2 | No coverage threshold; no property-based tests (hypothesis). | pyproject. | OPEN |
+| E6 | P2 | The quality gate was a script, not enforced: a red commit was possible (happened twice). | history. | FIXED (versioned `pre-commit` hook runs the whole gate; tested to block a failing gate) |
+| E7 | P2 | No coverage threshold; no property-based tests (hypothesis). | pyproject. | PARTLY FIXED (gate fails below 97% coverage; measured 100% statement coverage, which shows paths were run, not that they are right; `hypothesis` installed, property tests OPEN) |
 | E8 | P3 | `Offline` patches process-global socket functions; not thread-safe. Documented limit. | `offline.py`. | OPEN (document) |
 | E9 | P3 | Long runs in one process (queue script) leak memory and one crash kills the batch. | seen risk. | FIXED for `screen` (subprocess per run); `batch.py` OPEN |
 

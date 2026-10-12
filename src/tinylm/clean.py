@@ -69,10 +69,8 @@ def recase(text: str) -> str:
     if len(letters) < MIN_CASE_LETTERS or not all(c.isupper() for c in letters):
         return text
     lowered = STANDALONE_I.sub("I", text.lower())
-    for index, ch in enumerate(lowered):
-        if ch.isalpha():
-            return lowered[:index] + ch.upper() + lowered[index + 1 :]
-    return lowered
+    first = next(i for i, ch in enumerate(lowered) if ch.isalpha())
+    return lowered[:first] + lowered[first].upper() + lowered[first + 1 :]
 
 
 def untag(line: str) -> str:
