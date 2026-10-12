@@ -1,6 +1,7 @@
 """Decoder-only transformer with swappable parts and a parameter budget."""
 
 import dataclasses
+import functools
 
 import torch
 from torch import nn
@@ -111,6 +112,19 @@ def visibility(
     return visible
 
 
+@functools.lru_cache(maxsize=64)
+def local_mask(
+    length: int, window: int, causal: bool, device: str
+) -> torch.Tensor:
+    """Cached sliding-window mask already placed on the device.
+
+    Building the mask on the CPU and copying it every forward pass wasted
+    time on every training step; the cache key is exactly what determines
+    its contents.
+    """
+    return visibility(length, window, causal, is_global=False).to(device)
+
+
 def is_global(index: int, global_every: int) -> bool:
     """Returns True if the layer at index uses full attention."""
     if global_every <= 0:
@@ -174,13 +188,22 @@ class Attention(nn.Module):
         self.qkv = nn.Linear(config.d_model, 3 * config.d_model, bias=False)
         self.proj = nn.Linear(config.d_model, config.d_model, bias=False)
 
-    def forward(self, x: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
-        """Applies masked self-attention to (batch, length, d_model)."""
+    def forward(
+        self, x: torch.Tensor, mask: torch.Tensor | None, causal: bool
+    ) -> torch.Tensor:
+        """Applies self-attention to (batch, length, d_model).
+
+        mask is an explicit boolean visibility mask, or None for full
+        attention (causal when `causal` is set), which lets the fused
+        kernel run without a materialised mask.
+        """
         batch, length, width = x.shape
         q, k, v = self.qkv(x).chunk(3, dim=-1)
         shape = (batch, length, self.n_heads, width // self.n_heads)
         q, k, v = (t.view(shape).transpose(1, 2) for t in (q, k, v))
-        out = scaled_dot_product_attention(q, k, v, attn_mask=mask)
+        out = scaled_dot_product_attention(
+            q, k, v, attn_mask=mask, is_causal=mask is None and causal
+        )
         return self.proj(out.transpose(1, 2).reshape(batch, length, width))
 
 
@@ -203,9 +226,11 @@ class Block(nn.Module):
         nn.init.normal_(self.attn.proj.weight, std=std)
         nn.init.normal_(self.ffn_out.weight, std=std)
 
-    def forward(self, x: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
+    def forward(
+        self, x: torch.Tensor, mask: torch.Tensor | None, causal: bool
+    ) -> torch.Tensor:
         """Applies attention and feed-forward sublayers with residuals."""
-        x = x + self.drop(self.attn(self.attn_norm(x), mask))
+        x = x + self.drop(self.attn(self.attn_norm(x), mask, causal))
         hidden = self.act(self.ffn_in(self.ffn_norm(x)))
         return x + self.drop(self.ffn_out(hidden))
 
@@ -281,17 +306,11 @@ class TinyLM(nn.Module):
         positions = torch.arange(length, device=tokens.device)
         x = self.emb_drop(self.tok_emb(tokens) + self.pos_emb(positions))
         window = local_window or self.config.window
-        local_mask = visibility(length, window, causal, is_global=False).to(
-            x.device
-        )
-        global_mask = (
-            local_mask
-            if local_window
-            else visibility(length, window, causal, True).to(x.device)
-        )
+        local = local_mask(length, window, causal, str(x.device))
         for index, block in enumerate(self.blocks):
             use_global = is_global(index, self.config.global_every)
-            x = block(x, global_mask if use_global else local_mask)
+            fused = use_global and local_window is None
+            x = block(x, None if fused else local, causal)
             if index in self.codebook_after:
                 x = self.codebooks[self.codebook_after[index]](x)
         return self.head(self.final_norm(x))

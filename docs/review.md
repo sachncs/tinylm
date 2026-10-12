@@ -21,8 +21,8 @@ FIXED (with commit), OPEN (planned), CHECKED (suspected, measured, no defect).
 ## Optimisation
 | # | Sev | Finding | Evidence | Status |
 |---|-----|---------|----------|--------|
-| O1 | P1 | Training forces a GPU->CPU sync every step (`isfinite(loss)`, `float(loss)`), serialising the device and breaking overlap with data loading. | `train.py:141,150`. | OPEN |
-| O2 | P1 | Attention masks are rebuilt on CPU and copied to the device on every forward; pure-causal full attention does not use the fused `is_causal` path. | `model.py:284,290`. | OPEN |
+| O1 | P3 | Training syncs with the device every step (`isfinite(loss)`, `float(loss)`). Hypothesis: this serialises the device. **Measured: 162.8 ms vs 162.0 ms per step with the sync removed (0.5%)**, so it is not a bottleneck; per-step checking is kept because it reports the exact failing step. | `train.py`, MPS benchmark. | CHECKED (no change) |
+| O2 | P3 | Attention masks were rebuilt on CPU and copied to the device on every forward; pure-causal full attention did not use `is_causal`. Hypothesis: a speed-up. **Measured: 154.0 ms vs 155.1 ms per step (under 1%)**. Masks are now cached and global layers take the fused path (tested equal to the explicit-mask path), kept for cleanliness, not speed. | `model.py`, MPS benchmark. | FIXED (no speed gain) |
 | O3 | P2 | `Prepare` holds every cleaned line of the corpus in Python lists (multiple copies); Strict needs GBs of RAM. | `prepare.py`, `tokenizer.train` copies lines. | OPEN |
 | O4 | P3 | Scoring tokenises sentences one by one. | `bench.py`. | OPEN |
 | O5 | P3 | bf16/fp16 gave no speed-up on MPS (measured 7.4k/8.1k vs 7.9k tokens/s): documented, no change. | earlier measurement. | CHECKED |
@@ -30,7 +30,7 @@ FIXED (with commit), OPEN (planned), CHECKED (suspected, measured, no defect).
 ## Hardware acceleration
 | # | Sev | Finding | Evidence | Status |
 |---|-----|---------|----------|--------|
-| H1 | P1 | `device = "mps"` is trusted blindly: no availability check, and MPS CPU-fallback env var is not verified off (silent CPU fallback hides slow or wrong paths). | configs, `train.py`. | OPEN |
+| H1 | P1 | (fixed in `device.py`: availability and fallback checks, loud errors) `device = "mps"` was trusted blindly: no availability check, and MPS CPU-fallback env var is not verified off (silent CPU fallback hides slow or wrong paths). | configs, `train.py`. | PARTLY FIXED (`Device` exists; wiring into Train/Experiment pending) |
 | H2 | P2 | Throughput is wall-clock including evaluation and callbacks, and not synchronised with the device. | `experiment.py:246-248`. | OPEN |
 | H3 | P2 | No device-memory release between runs in one process. | seen risk. | FIXED for `screen` (processes); OPEN elsewhere |
 | H4 | P3 | `torch.compile`/graph capture not assessed on MPS. | -- | OPEN (measure, report) |

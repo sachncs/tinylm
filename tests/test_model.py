@@ -322,3 +322,48 @@ class TestCodebooks:
         for module in net.modules():
             if isinstance(module, model.Codebook):
                 assert module.codes.grad is not None
+
+
+class TestMaskCacheAndFastPath:
+    def test_local_mask_is_cached_per_arguments_and_matches_visibility(self):
+        model.local_mask.cache_clear()
+        a = model.local_mask(10, 3, True, "cpu")
+        assert model.local_mask(10, 3, True, "cpu") is a
+        assert model.local_mask(10, 4, True, "cpu") is not a
+        assert torch.equal(a, model.visibility(10, 3, True, is_global=False))
+        info = model.local_mask.cache_info()
+        assert info.hits == 1 and info.misses == 2
+
+    def test_repeated_forwards_build_no_new_masks(self):
+        net = make_net()
+        model.local_mask.cache_clear()
+        net(batch())
+        misses = model.local_mask.cache_info().misses
+        net(batch())
+        net(batch())
+        assert model.local_mask.cache_info().misses == misses
+
+    def test_global_layers_skip_the_explicit_mask(
+        self, monkeypatch: pytest.MonkeyPatch
+    ):
+        net = make_net(global_every=1)
+        calls: list[object] = []
+        original = model.Attention.forward
+
+        def spy(
+            self: model.Attention, x: torch.Tensor, mask: object, causal: bool
+        ):
+            calls.append(mask)
+            return original(self, x, mask, causal)  # pyright: ignore[reportArgumentType]
+
+        monkeypatch.setattr(model.Attention, "forward", spy)
+        net(batch())
+        assert calls and all(m is None for m in calls)
+
+    @pytest.mark.parametrize("causal", [True, False])
+    def test_fused_path_equals_the_explicit_mask_path(self, causal: bool):
+        net = make_net(global_every=1)
+        with torch.no_grad():
+            fast = net(batch(), causal=causal)
+            slow = net(batch(), causal=causal, local_window=12)
+        torch.testing.assert_close(fast, slow, rtol=1e-5, atol=1e-5)
