@@ -14,7 +14,7 @@ from tokenizers import Tokenizer
 
 from tinylm import manifest, tokenizer
 from tinylm.atomic import Staging
-from tinylm.clean import SOURCES, Options, apply, dedupe
+from tinylm.clean import SOURCES, Options, apply, dedupe, words
 from tinylm.tokens import Token, dtype_for
 
 VERSION = 2
@@ -246,7 +246,7 @@ class Prepare:
                     else:
                         train.write(line + "\n")
                         n_train += 1
-                        if len(line.split()) >= self.unique:
+                        if words(line) >= self.unique:
                             hashes.append(fingerprint(line))
         return (
             numpy.unique(numpy.frombuffer(hashes, dtype=numpy.uint64)),
@@ -275,7 +275,7 @@ class Prepare:
         ):
             for raw in source:
                 line = raw.rstrip("\n")
-                if len(line.split()) >= self.unique:
+                if words(line) >= self.unique:
                     where = numpy.searchsorted(
                         known, numpy.uint64(fingerprint(line))
                     )

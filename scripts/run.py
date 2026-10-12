@@ -2,9 +2,14 @@
 
 import argparse
 import pathlib
+import signal
+import sys
+import threading
 
 from tinylm import logs
-from tinylm.experiment import Experiment
+from tinylm.experiment import Error, Experiment
+
+INTERRUPTED = 130
 
 
 def main() -> None:
@@ -12,6 +17,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("config", type=pathlib.Path)
     parser.add_argument("--name")
+    parser.add_argument("--resume", action="store_true")
     parser.add_argument("--set", action="append", default=[], dest="sets")
     args = parser.parse_args()
     logs.setup()
@@ -20,7 +26,16 @@ def main() -> None:
         experiment = experiment.override(
             args.sets, args.name or experiment.name
         )
-    print(experiment.run())
+    stop = threading.Event()
+    for number in (signal.SIGINT, signal.SIGTERM):
+        signal.signal(number, lambda *_: stop.set())
+    try:
+        print(experiment.run(resume=args.resume, halt=stop.is_set))
+    except Error as error:
+        if not error.resumable:
+            raise
+        print(error, file=sys.stderr)
+        sys.exit(INTERRUPTED)
 
 
 if __name__ == "__main__":

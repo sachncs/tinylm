@@ -8,8 +8,19 @@ import sys
 
 
 def command(base: pathlib.Path, name: str, sets: tuple[str, ...]) -> list[str]:
-    """The command line that runs one named variant of a base experiment."""
-    line = [sys.executable, "scripts/run.py", str(base), "--name", name]
+    """The command line that runs one named variant of a base experiment.
+
+    `--resume` makes a re-run after a crash continue from the checkpoint
+    when there is one and start fresh when there is none.
+    """
+    line = [
+        sys.executable,
+        "scripts/run.py",
+        str(base),
+        "--name",
+        name,
+        "--resume",
+    ]
     for override in sets:
         line += ["--set", override]
     return line

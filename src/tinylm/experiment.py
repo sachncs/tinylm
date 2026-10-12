@@ -1,5 +1,6 @@
 """TOML-configured experiments: parse, override, queue and run."""
 
+import collections.abc
 import dataclasses
 import hashlib
 import json
@@ -28,7 +29,16 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 
 
 class Error(Exception):
-    """Raised when an experiment, override or queue file is invalid."""
+    """Raised for an invalid experiment, override or queue, or a halted run.
+
+    Attributes:
+        resumable: True when the run was halted and its checkpoint allows
+            continuing with resume.
+    """
+
+    def __init__(self, message: str, resumable: bool = False) -> None:
+        super().__init__(message)
+        self.resumable = resumable
 
 
 if typing.TYPE_CHECKING:
@@ -287,18 +297,30 @@ class Experiment:
         updated.check(vocab)
         return updated
 
-    def run(self) -> Metrics:
+    def run(
+        self,
+        resume: bool = False,
+        halt: collections.abc.Callable[[], bool] | None = None,
+    ) -> Metrics:
         """Trains from the prepared data with no network and writes metrics.
+
+        Args:
+            resume: Continue from the run's checkpoint if there is one
+                (otherwise start fresh). A checkpoint written under a
+                different configuration or dataset is refused.
+            halt: Polled before every step; when it returns True the run
+                checkpoints and raises a resumable Error.
 
         Raises:
             FileNotFoundError: If the prepared data or an evaluation folder
                 is missing (checked before any training).
+            Error: With resumable set, if halt stopped the run.
         """
         for folder in self.evals:
             if not folder.is_dir():
                 raise FileNotFoundError(folder)
         with Offline():
-            return self.execute()
+            return self.execute(resume, halt)
 
     def restore(self) -> tuple[model.TinyLM, Tokenizer]:
         """Loads the final model of a finished run, on the CPU.
@@ -312,7 +334,9 @@ class Experiment:
         net.load_state_dict(saved.model)
         return net.eval(), tokenizer.load(self.data / "tokenizer.json")
 
-    def execute(self) -> Metrics:
+    def execute(
+        self, resume: bool, halt: collections.abc.Callable[[], bool] | None
+    ) -> Metrics:
         """Does the work of run() once the inputs are known to exist."""
         tok = tokenizer.load(self.data / "tokenizer.json")
         train = Token.load(self.data / "train")
@@ -322,19 +346,44 @@ class Experiment:
         seeding.set_seed(self.train.seed)
         net = model.TinyLM(net_config)
         model.check(net)
-        losses: list[float] = []
-
-        def after(epoch: int) -> None:
-            losses.append(self.train.evaluate(net, dev))
-            log.info("epoch %d dev_loss %.4f", epoch, losses[-1])
-            net.train()
-
         self.out.mkdir(parents=True, exist_ok=True)
         resolved = json.dumps(dataclasses.asdict(self), indent=2, default=str)
         durable(
             self.out / "experiment.json", lambda h: h.write(resolved.encode())
         )
-        result = self.train.run(net, train, self.out, after=after)
+        resuming = resume and (self.out / CHECKPOINT).is_file()
+        record = self.out / "dev_loss.json"
+        seen: dict[int, float] = {}
+        if resuming and record.is_file():
+            seen = {
+                int(k): v for k, v in json.loads(record.read_text()).items()
+            }
+
+        def save() -> None:
+            text = json.dumps({str(k): v for k, v in sorted(seen.items())})
+            durable(record, lambda h: h.write(text.encode()))
+
+        save()
+
+        def after(epoch: int) -> None:
+            seen[epoch] = self.train.evaluate(net, dev)
+            log.info("epoch %d dev_loss %.4f", epoch, seen[epoch])
+            save()
+            net.train()
+
+        result = self.train.run(
+            net, train, self.out, resume=resuming, halt=halt, after=after
+        )
+        if result.interrupted:
+            raise Error(
+                f"interrupted at step {result.steps}; the checkpoint is "
+                "saved, rerun with resume to continue",
+                resumable=True,
+            )
+        missing = [e for e in range(self.train.epochs) if e not in seen]
+        if missing:
+            raise Error(f"no dev loss was recorded for epochs {missing}")
+        losses = [seen[e] for e in range(self.train.epochs)]
         final = self.train.evaluate(net, dev)
         bench = Bench(net, tok, self.train.device)
         benchmarks: dict[str, float] = {}
@@ -361,7 +410,7 @@ class Experiment:
             dev_loss=losses,
             final_loss=final,
             epochs_used=result.budget.epochs_used,
-            tokens_per_second=result.budget.consumed / result.seconds,
+            tokens_per_second=result.processed / result.seconds,
             train_tokens=len(train),
             benchmarks=benchmarks,
             intervals=intervals,

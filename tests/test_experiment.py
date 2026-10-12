@@ -1,5 +1,6 @@
 """Tests for TOML experiments: parse, override, queue and run."""
 
+import dataclasses
 import json
 import pathlib
 
@@ -9,6 +10,7 @@ from tinylm.clean import Options
 from tinylm.experiment import Error, Experiment, Queue
 from tinylm.prepare import Prepare
 from tinylm.tokens import Token
+from tinylm.train import Error as TrainError
 
 TOML = """
 name = "tiny"
@@ -324,3 +326,53 @@ class TestFinalModel:
         prepared(tmp_path)
         with pytest.raises(FileNotFoundError):
             Experiment.load(config(tmp_path)).restore()
+
+
+@pytest.mark.e2e
+class TestInterruptAndResume:
+    def test_an_interrupted_run_raises_then_resumes_to_the_same_result(
+        self, tmp_path: pathlib.Path
+    ):
+        prepared(tmp_path)
+        experiment = Experiment.load(config(tmp_path))
+        calls = {"n": 0}
+
+        def halt() -> bool:
+            calls["n"] += 1
+            return calls["n"] > 9
+
+        with pytest.raises(Error, match="step 9") as caught:
+            experiment.run(halt=halt)
+        assert caught.value.resumable
+        assert not (tmp_path / "o" / "metrics.json").exists()
+        resumed = experiment.run(resume=True)
+        clean = Experiment.load(config(tmp_path)).override([], "clean").run()
+        assert resumed.dev_loss == pytest.approx(clean.dev_loss, rel=1e-6)
+        assert resumed.final_loss == pytest.approx(clean.final_loss, rel=1e-6)
+
+    def test_resume_without_a_checkpoint_starts_fresh(
+        self, tmp_path: pathlib.Path
+    ):
+        prepared(tmp_path)
+        metrics = Experiment.load(config(tmp_path)).run(resume=True)
+        assert len(metrics.dev_loss) == 2
+
+    def test_resume_refuses_a_changed_configuration(
+        self, tmp_path: pathlib.Path
+    ):
+        prepared(tmp_path)
+        experiment = Experiment.load(config(tmp_path))
+        calls = {"n": 0}
+
+        def halt() -> bool:
+            calls["n"] += 1
+            return calls["n"] > 3
+
+        with pytest.raises(Error):
+            experiment.run(halt=halt)
+        changed = dataclasses.replace(
+            experiment, train=dataclasses.replace(experiment.train, lr=0.01)
+        )
+        assert changed.out == experiment.out
+        with pytest.raises(TrainError, match="changed"):
+            changed.run(resume=True)

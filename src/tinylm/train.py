@@ -38,12 +38,18 @@ class Result:
         budget: The epoch ledger after the call.
         seconds: Device-synchronised time spent in training steps, excluding
             callbacks such as evaluation.
+        processed: Tokens consumed by this call alone (not by earlier
+            segments of a resumed run).
+        interrupted: True if `halt` stopped the run before it finished; the
+            checkpoint then holds everything needed to resume.
     """
 
     losses: list[float]
     steps: int
     budget: ledger.Budget
     seconds: float
+    processed: int = 0
+    interrupted: bool = False
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -331,6 +337,7 @@ class Train:
         budget: ledger.Budget | None = None,
         resume: bool = False,
         stop: int | None = None,
+        halt: collections.abc.Callable[[], bool] | None = None,
         after: collections.abc.Callable[[int], None] | None = None,
     ) -> Result:
         """Trains net on tokens, enforcing the epoch budget.
@@ -342,6 +349,9 @@ class Train:
             budget: Epoch ledger; defaults to self.epochs over the stream.
             resume: Continue from out/checkpoint.pt.
             stop: Checkpoint and return after this many total steps.
+            halt: Polled before every step; when it returns True the run
+                checkpoints at that step boundary and returns interrupted
+                (wire it to SIGINT/SIGTERM for a clean shutdown).
             after: Called with the epoch index after each finished epoch.
 
         Raises:
@@ -367,6 +377,7 @@ class Train:
         path = out / CHECKPOINT
         if resume:
             session.restore(path, self.device, fingerprint)
+        started = session.budget.consumed
         losses: list[float] = []
         done = 0
         seconds = 0.0
@@ -379,11 +390,19 @@ class Train:
                 length, self.chunk(), epoch, self.seed, shift=self.shift
             )
             for index in range(session.step - done, per_epoch[epoch]):
-                if stop is not None and session.step >= stop:
+                halted = halt is not None and halt()
+                if halted or (stop is not None and session.step >= stop):
                     session.checkpoint(path, fingerprint)
                     device.sync()
                     seconds += time.perf_counter() - clock
-                    return Result(losses, session.step, session.budget, seconds)
+                    return Result(
+                        losses,
+                        session.step,
+                        session.budget,
+                        seconds,
+                        session.budget.consumed - started,
+                        halted,
+                    )
                 chosen = starts[index * self.batch : (index + 1) * self.batch]
                 batch = tokens.rows(chosen, self.chunk()).to(self.device)
                 rate = self.rate(
@@ -402,7 +421,13 @@ class Train:
         session.checkpoint(path, fingerprint)
         device.sync()
         seconds += time.perf_counter() - clock
-        return Result(losses, session.step, session.budget, seconds)
+        return Result(
+            losses,
+            session.step,
+            session.budget,
+            seconds,
+            session.budget.consumed - started,
+        )
 
     def evaluate(self, net: model.TinyLM, tokens: Token) -> float:
         """Mean next-token cross-entropy over non-overlapping sequences.

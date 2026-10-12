@@ -91,3 +91,31 @@ def test_unicode_is_normalised_to_nfc():
     decomposed = "café au lait"
     assert clean.typography(decomposed) == "café au lait"
     assert clean.typography("café au lait") == clean.typography(decomposed)
+
+
+@pytest.mark.parametrize(
+    "text,expected",
+    [
+        ("hello big world", 3),
+        ("", 0),
+        ("   ", 0),
+        ("你好世界", 4),
+        ("hello 你好 world", 4),
+        ("こんにちは", 5),
+        ("今日は天気", 5),
+        ("naïve café", 2),
+    ],
+)
+def test_words_counts_spaced_words_and_unspaced_characters(
+    text: str, expected: int
+):
+    assert clean.words(text) == expected
+
+
+def test_chinese_lines_are_deduplicated_by_character_length():
+    line = "这是一个很长的句子" * 4
+    seen: set[bytes] = set()
+    kept = list(
+        clean.dedupe([line, "短。", line, "短。"], min_words=20, seen=seen)
+    )
+    assert kept == [line, "短。", "短。"]

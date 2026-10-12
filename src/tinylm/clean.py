@@ -33,6 +33,7 @@ SPEAKER_TAG = re.compile(r"^(?:\*([A-Z0-9]{2,4})|([AB])):\t+")
 STAGE_DIRECTION = re.compile(r"^\[.*\]$")
 WIKI_HEADING = re.compile(r"^(?:=\s*)+(.+?)(?:\s*=)+$")
 STANDALONE_I = re.compile(r"\bi\b")
+UNSPACED = re.compile(r"[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]")
 
 
 @dataclasses.dataclass(frozen=True)
@@ -48,6 +49,17 @@ class Options:
     keep_speaker_tags: bool = False
     recase: bool = True
     drop_stage_directions: bool = True
+
+
+def words(text: str) -> int:
+    """Counts words: spaced tokens, plus each character of unspaced scripts.
+
+    Han, Hiragana and Katakana are written without spaces, so every such
+    character counts as one word; everything else is split on whitespace.
+    """
+    unspaced = len(UNSPACED.findall(text))
+    rest = UNSPACED.sub(" ", text)
+    return unspaced + len(rest.split())
 
 
 def typography(text: str) -> str:
@@ -127,7 +139,7 @@ def dedupe(
         raise ValueError("min_words must be positive")
     seen = set() if seen is None else seen
     for line in lines:
-        if len(line.split()) >= min_words:
+        if words(line) >= min_words:
             key = hashlib.blake2b(line.encode(), digest_size=16).digest()
             if key in seen:
                 continue

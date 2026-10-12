@@ -15,9 +15,11 @@ FIXED (with commit), OPEN (planned), CHECKED (suspected, measured, no defect).
 | E5 | P2 | 17 type/lint suppressions hid checks. | `grep -rn "pyright: ignore\|noqa"` = 17. | FIXED (16 removed by fixing the typing; 1 left, `noqa: PLR0913` on `Train.run`, with its reason written next to it; `reportUnnecessaryTypeIgnoreComment` and `RUF100` now fail the gate on any stale suppression) |
 | E6 | P2 | The quality gate was a script, not enforced: a red commit was possible (happened twice). | history. | FIXED (versioned `pre-commit` hook runs the whole gate; tested to block a failing gate) |
 | E7 | P2 | No coverage threshold; no property-based tests (hypothesis). | pyproject. | FIXED (gate fails below 97% coverage; measured 99.9% statement coverage, which shows paths were run, not that they are right; seven property-based tests with `hypothesis`) |
-| E8 | P3 | `Offline` patches process-global socket functions; not thread-safe. Documented limit. | `offline.py`. | OPEN (document) |
+| E8 | P3 | `Offline` patches process-global socket functions; not thread-safe. | `offline.py`. | FIXED (a lock makes nesting or use from a second thread raise `Error` instead of restoring the wrong state; the lock and the environment flags are released if entering fails; tested) |
 | E10 | P1 | **Found while hardening, introduced by me:** with weight averaging on, `bits_per_char` was measured on the live weights while the benchmark score used the averaged weights, so one result mixed two models; and the final checkpoint held the live weights, not the returned model. Any run with `ema > 0` is affected, including the EMA arms of the screen started before the fix. | `Experiment.execute` / `Train.run` order of `finish()` and the last checkpoint. | FIXED (final loss is evaluated on the returned model; the final checkpoint stores it; `Experiment.restore` and `experiment.json` added; invariants tested). The screen running at the time is a preview only for the EMA factor on bits/char; the screen is re-run on the corrected code. |
 | E9 | P3 | Long runs in one process leak memory and one crash kills the batch. | seen risk. | FIXED (`jobs.run_all`: one process per run, `caffeinate`, first failure stops the batch with its exit status; used by `screen.py` and `batch.py`) |
+
+| R1 | P1 | A long run killed by Ctrl-C, SIGTERM or a crash lost all progress and the next attempt restarted from zero. | `run.py` had no signal handling and no resume path. | FIXED (`Train.run(halt=...)` stops at a step boundary and checkpoints; SIGINT/SIGTERM set the halt flag; `Experiment.run(resume=True)` continues exactly (dev-loss history persisted per epoch); `jobs.command` passes `--resume`, so re-running a batch continues the interrupted run; a changed configuration or dataset is refused; tested to resume to the identical result) |
 
 ## Optimisation
 | # | Sev | Finding | Evidence | Status |
@@ -40,10 +42,10 @@ FIXED (with commit), OPEN (planned), CHECKED (suspected, measured, no defect).
 | # | Sev | Finding | Evidence | Status |
 |---|-----|---------|----------|--------|
 | D1 | P1 | **Dev set leaked training text**: 4.5% of dev lines with >= 6 words (167/3,674) were exact copies of training lines (33% of all dev lines, mostly short utterances). Dev loss and bits/char were optimistic. | measured on Strict-Small. | FIXED (`Prepare.unique` drops those lines; `stats.json` records the count, 167, which matches the hand measurement) |
-| D2 | P2 | Duplicate removal was per source only; no near-duplicate removal. | `prepare.py`. | PARTLY FIXED (exact long-line dedupe now shared across sources; near-duplicates OPEN) |
+| D2 | P2 | Duplicate removal was per source only; no near-duplicate removal. **Measured:** lines that repeat after normalising case and punctuation are 233 extra lines in Strict-Small (0.022%) and 1,831 in Strict (0.016%); lines sharing an 8-word opening are under 0.07%. | `prepare.py`, measurement script. | CHECKED (exact long-line dedupe is shared across sources; fuzzy deduplication would act on well under 0.1% of lines, so it was not built) |
 | D3 | P2 | No Unicode normalisation (NFC) before tokenising. | `clean.py`. | FIXED |
 | D4 | P2 | Output lineage was partial. | `prepare.py`. | FIXED (settings and tokenizer hash in `stats.json`, version 2; code revision is in each run's provenance) |
-| D5 | P3 | Whitespace word counts used for dedupe/stats mis-count languages without spaces (needed for the MultiLingual track). | `clean.dedupe`. | OPEN |
+| D5 | P3 | Whitespace word counts mis-counted languages without spaces (needed for the MultiLingual track). | `clean.dedupe`. | FIXED (`clean.words`: each Han, Hiragana or Katakana character counts as a word; used by dedupe and dev decontamination; tested on Chinese, Japanese and mixed text) |
 | D6 | P3 | `splitlines()` could split on form-feed and other separators. | measured: differs from `split("\n")` only by the trailing newline in all six sources. | CHECKED (no defect) |
 
 ## Evaluation (raised by the user: do not lower the bar)

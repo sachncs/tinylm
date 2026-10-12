@@ -17,12 +17,17 @@ def test_command_names_the_run_and_passes_every_override_in_order():
         "c.toml",
         "--name",
         "x01",
+        "--resume",
         "--set",
         "a.b=1",
         "--set",
         "c.d=2",
     ]
-    assert jobs.command(pathlib.Path("c.toml"), "x", ())[-2:] == ["--name", "x"]
+    assert jobs.command(pathlib.Path("c.toml"), "x", ())[-3:] == [
+        "--name",
+        "x",
+        "--resume",
+    ]
 
 
 def test_run_all_executes_in_order_and_wraps_with_caffeinate_when_present(

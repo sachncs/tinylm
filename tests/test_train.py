@@ -283,3 +283,42 @@ class TestIntegrity:
         assert train().run(net(), noise(), tmp_path).seconds > 0.0
         with pytest.raises(DeviceError, match="device"):
             train(device="tpu").run(net(), noise(), tmp_path / "x")
+
+
+class TestHalt:
+    def test_halt_stops_at_a_step_boundary_with_a_resumable_checkpoint(
+        self, tmp_path: pathlib.Path
+    ):
+        data = noise()
+        calls = {"n": 0}
+
+        def halt() -> bool:
+            calls["n"] += 1
+            return calls["n"] > 7
+
+        first = train().run(net(), data, tmp_path / "h", halt=halt)
+        assert first.interrupted and first.steps == 7
+        resumed = net()
+        done = train().run(resumed, data, tmp_path / "h", resume=True)
+        reference = net()
+        train().run(reference, data, tmp_path / "ref")
+        assert not done.interrupted and done.steps == first.steps + len(
+            done.losses
+        )
+        for p, q in zip(
+            resumed.parameters(), reference.parameters(), strict=True
+        ):
+            torch.testing.assert_close(p, q, rtol=0, atol=0)
+
+    def test_a_finished_run_is_not_marked_interrupted(
+        self, tmp_path: pathlib.Path
+    ):
+        assert not train().run(net(), noise(), tmp_path).interrupted
+
+    def test_halt_that_never_fires_changes_nothing(
+        self, tmp_path: pathlib.Path
+    ):
+        a, b = net(), net()
+        train().run(a, noise(), tmp_path / "a")
+        train().run(b, noise(), tmp_path / "b", halt=lambda: False)
+        assert same(a, b)
