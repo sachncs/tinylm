@@ -11,7 +11,7 @@ from tinylm.atomic import Staging
 from tinylm.clean import SOURCES, Options, apply, dedupe
 from tinylm.tokens import Token
 
-VERSION = 1
+VERSION = 2
 SUFFIX = ".train.txt"
 BOS = tokenizer.SPECIAL_TOKENS.index("<bos>")
 DEDUPE_WORDS = 20
@@ -28,7 +28,10 @@ class Stats:
         train_tokens: Tokens in the training stream.
         dev_tokens: Tokens in the held-out stream.
         dev_chars: Characters (with newlines) in the held-out text.
+        dev_dropped: Held-out lines removed because they also occur in train.
         inputs: Name and SHA-256 of every raw input file.
+        settings: The Prepare settings that produced this output.
+        tokenizer_sha256: SHA-256 of tokenizer.json.
         version: Layout version of the output directory.
     """
 
@@ -37,7 +40,10 @@ class Stats:
     train_tokens: int
     dev_tokens: int
     dev_chars: int
+    dev_dropped: int
     inputs: tuple[manifest.Entry, ...]
+    settings: dict[str, object]
+    tokenizer_sha256: str
     version: int = VERSION
 
 
@@ -51,6 +57,8 @@ class Prepare:
         block: Consecutive lines per split block.
         every: Every n-th block is held out as dev data.
         options: Cleaning options.
+        unique: Held-out lines with at least this many words must not occur
+            verbatim in the training lines; such lines are dropped from dev.
     """
 
     vocab: int
@@ -58,6 +66,7 @@ class Prepare:
     block: int
     every: int
     options: Options
+    unique: int = 6
 
     def __post_init__(self) -> None:
         """Validates the split settings."""
@@ -65,6 +74,8 @@ class Prepare:
             raise ValueError("block must be positive")
         if self.every <= 0:
             raise ValueError("every must be positive")
+        if self.unique <= 0:
+            raise ValueError("unique must be positive")
 
     def read(self, corpus: pathlib.Path) -> dict[str, list[str]]:
         """Reads and cleans every source file in a corpus directory.
@@ -83,6 +94,7 @@ class Prepare:
         unknown = sorted(set(paths) - set(SOURCES))
         if unknown or not paths:
             raise ValueError(f"no known source files (unknown: {unknown})")
+        seen: set[bytes] = set()
         return {
             name: list(
                 dedupe(
@@ -92,9 +104,10 @@ class Prepare:
                         self.options,
                     ),
                     min_words=DEDUPE_WORDS,
+                    seen=seen,
                 )
             )
-            for name, path in paths.items()
+            for name, path in sorted(paths.items())
         }
 
     def split(self, lines: list[str]) -> tuple[list[str], list[str]]:
@@ -140,22 +153,34 @@ class Prepare:
             train, dev = self.split(sources[name])
             train_lines.extend(train)
             dev_lines.extend(dev)
-        if not train_lines or not dev_lines:
+        if not train_lines:
             raise ValueError("corpus has no text after cleaning and splitting")
+        known = set(train_lines)
+        kept = [
+            line
+            for line in dev_lines
+            if len(line.split()) < self.unique or line not in known
+        ]
+        if not kept:
+            raise ValueError("corpus has no held-out text after cleaning")
         tok = tokenizer.train(train_lines, self.vocab, self.kind)
         train_stream = self.encode(tok, train_lines)
-        dev_stream = self.encode(tok, dev_lines)
+        dev_stream = self.encode(tok, kept)
         names = sorted(f"{name}{SUFFIX}" for name in sources)
-        stats = Stats(
-            len(train_lines),
-            len(dev_lines),
-            len(train_stream),
-            len(dev_stream),
-            sum(len(line) + 1 for line in dev_lines),
-            manifest.build(corpus, names).entries,
-        )
+        inputs = manifest.build(corpus, names).entries
         with Staging(out) as staged:
             tokenizer.save(tok, staged / "tokenizer.json")
+            stats = Stats(
+                len(train_lines),
+                len(kept),
+                len(train_stream),
+                len(dev_stream),
+                sum(len(line) + 1 for line in kept),
+                len(dev_lines) - len(kept),
+                inputs,
+                dataclasses.asdict(self),
+                manifest.digest(staged / "tokenizer.json"),
+            )
             train_stream.store(staged / "train")
             dev_stream.store(staged / "dev")
             (staged / "stats.json").write_text(

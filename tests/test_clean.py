@@ -76,3 +76,18 @@ def test_drop_duplicate_long_lines_keeps_short_repeats():
     assert out == [long_line, "Yeah.", "Yeah."]
     with pytest.raises(ValueError, match="min_words"):
         list(clean.dedupe(["a"], min_words=0))
+
+
+def test_dedupe_can_share_state_across_sources():
+    long_line = " ".join(["word"] * 25)
+    seen: set[bytes] = set()
+    first = list(clean.dedupe([long_line, "a."], min_words=20, seen=seen))
+    second = list(clean.dedupe([long_line, "a."], min_words=20, seen=seen))
+    assert first == [long_line, "a."]
+    assert second == ["a."]
+
+
+def test_unicode_is_normalised_to_nfc():
+    decomposed = "café au lait"
+    assert clean.typography(decomposed) == "café au lait"
+    assert clean.typography("café au lait") == clean.typography(decomposed)

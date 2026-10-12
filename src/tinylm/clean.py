@@ -51,8 +51,8 @@ class Options:
 
 
 def typography(text: str) -> str:
-    """Straightens quotes and dashes, removes controls, collapses spaces."""
-    text = text.translate(TYPOGRAPHY)
+    """NFC-normalises, straightens quotes/dashes, drops controls and spaces."""
+    text = unicodedata.normalize("NFC", text).translate(TYPOGRAPHY)
     text = "".join(
         ch for ch in text if ch.isspace() or unicodedata.category(ch) != "Cc"
     )
@@ -113,18 +113,21 @@ def apply(
 
 
 def dedupe(
-    lines: collections.abc.Iterable[str], min_words: int
+    lines: collections.abc.Iterable[str],
+    min_words: int,
+    seen: set[bytes] | None = None,
 ) -> collections.abc.Iterator[str]:
     """Drops repeats of lines with at least min_words words.
 
     Short lines such as "Yeah." are legitimately repeated and are kept.
+    Pass the same `seen` set to several calls to deduplicate across them.
 
     Raises:
         ValueError: If min_words is not positive.
     """
     if min_words <= 0:
         raise ValueError("min_words must be positive")
-    seen: set[bytes] = set()
+    seen = set() if seen is None else seen
     for line in lines:
         if len(line.split()) >= min_words:
             key = hashlib.blake2b(line.encode(), digest_size=16).digest()
