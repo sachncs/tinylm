@@ -7,6 +7,7 @@ import pathlib
 
 from tinylm import logs
 from tinylm.atomic import durable
+from tinylm.bench import Bench
 from tinylm.experiment import Experiment
 from tinylm.export import Export
 from tinylm.official import Official
@@ -23,16 +24,10 @@ TASKS = (
 def main() -> None:
     """Runs every official task on the exported final model."""
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("config", type=pathlib.Path)
-    parser.add_argument("--name")
-    parser.add_argument("--set", action="append", default=[], dest="sets")
+    parser.add_argument("run", type=pathlib.Path, help="a finished run folder")
     args = parser.parse_args()
     logs.setup()
-    experiment = Experiment.load(args.config)
-    if args.sets or args.name:
-        experiment = experiment.override(
-            args.sets, args.name or experiment.name
-        )
+    experiment = Experiment.from_run(args.run)
     net, tok = experiment.restore()
     target = experiment.out / "export"
     if not target.exists():
@@ -49,10 +44,21 @@ def main() -> None:
         )
         for folder, task in TASKS
     }
+    bench = Bench(net, tok, "cpu")
+    for folder, task in TASKS:
+        if task == "blimp":
+            ours = 100.0 * bench.evaluate(EVALS / folder).mean
+            scores[folder]["in_house"] = ours
+            scores[folder]["gap"] = ours - scores[folder]["average"]
     text = json.dumps(scores, indent=2) + "\n"
     durable(experiment.out / "official.json", lambda h: h.write(text.encode()))
     for folder, score in scores.items():
-        print(f"{folder}: {score['average']:.2f}")
+        extra = (
+            f" (in-house {score['in_house']:.2f}, gap {score['gap']:+.2f})"
+            if "in_house" in score
+            else ""
+        )
+        print(f"{folder}: {score['average']:.2f}{extra}")
 
 
 if __name__ == "__main__":
