@@ -8,20 +8,20 @@ FLAGS = ("HF_HUB_OFFLINE", "TRANSFORMERS_OFFLINE", "HF_DATASETS_OFFLINE")
 ON = "1"
 
 
-class Blocked(Exception):
+class Error(Exception):
     """Raised when code inside Offline tries to open a network connection."""
 
 
 def refuse(*_args: object, **_kwargs: object) -> None:
     """Replacement for socket connect calls inside Offline."""
-    raise Blocked("network access attempted while Offline is active")
+    raise Error("network access attempted while Offline is active")
 
 
 class Offline:
     """Context manager that disables the network for its body.
 
     Sets the Hugging Face offline flags and replaces socket connection calls
-    with a function that raises Blocked. Everything is restored on exit, also
+    with a function that raises Error. Everything is restored on exit, also
     when the body raises.
     """
 

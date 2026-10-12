@@ -7,16 +7,16 @@ import socket
 import pytest
 
 from tinylm.clean import Options
-from tinylm.offline import Blocked, Offline
+from tinylm.offline import Error, Offline
 from tinylm.prepare import Prepare
 from tinylm.tokens import Token
 
 
 def test_connections_are_blocked_inside_and_restored_after():
     with Offline():
-        with pytest.raises(Blocked, match="network"):
+        with pytest.raises(Error, match="network"):
             socket.create_connection(("example.com", 80), timeout=1)
-        with pytest.raises(Blocked):
+        with pytest.raises(Error):
             socket.socket().connect(("127.0.0.1", 9))
     original = socket.socket.connect
     with Offline():
