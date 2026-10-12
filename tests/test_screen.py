@@ -129,6 +129,28 @@ class TestFront:
             Point("x", 1.5, 0.5, 1.0)
 
 
+class TestKnownNulls:
+    def test_a_known_null_factor_widens_the_noise_and_is_never_significant(
+        self,
+    ):
+        rows = torch.tensor(Design.pb24().rows, dtype=torch.float32)
+        # f0 has a real effect; f1 truly has none but its column carries a
+        # leaked effect (as aliasing does in real screens).
+        response = [float(y) for y in 5.0 + 1.0 * rows[:, 0] + 0.8 * rows[:, 1]]
+        plain = Screen(Design.pb24(), factors(3), dummies=3).analyse(response)
+        guarded = Screen(
+            Design.pb24(), factors(3), dummies=3, nulls=("f1",)
+        ).analyse(response)
+        assert guarded.noise > plain.noise
+        by_name = {e.name: e for e in guarded.effects}
+        assert not by_name["f1"].significant
+        assert len(guarded.dummy_effects) == 4
+
+    def test_unknown_null_names_are_rejected(self):
+        with pytest.raises(ValueError, match="nulls"):
+            Screen(Design.pb24(), factors(3), dummies=3, nulls=("nope",))
+
+
 class TestFactorial:
     def test_full_design_has_every_combination_once(self):
         design = Factorial(factors(3))

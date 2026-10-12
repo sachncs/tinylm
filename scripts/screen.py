@@ -48,7 +48,9 @@ FACTORS = (
 
 def screen() -> Screen:
     """The screen used for this study."""
-    return Screen(Design.pb24(), FACTORS, DUMMIES)
+    # `shift` cannot matter in a 1-epoch run (epoch 0 always starts at offset
+    # 0), so its apparent effect measures aliasing and is counted as noise.
+    return Screen(Design.pb24(), FACTORS, DUMMIES, nulls=("shift",))
 
 
 def run() -> None:

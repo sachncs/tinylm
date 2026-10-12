@@ -5,7 +5,17 @@ import itertools
 import math
 
 GENERATOR_24 = "+++++-+-++--++--+-+----"
-SIGNIFICANT = 2.353  # two-sided 10% Student t, 3 degrees of freedom
+# Two-sided 10% Student t by degrees of freedom (number of noise columns).
+CRITICAL = {
+    1: 6.314,
+    2: 2.920,
+    3: 2.353,
+    4: 2.132,
+    5: 2.015,
+    6: 1.943,
+    7: 1.895,
+    8: 1.860,
+}
 MIN_DUMMIES = 2
 TINY = 1e-12
 
@@ -107,11 +117,16 @@ class Screen:
         design: Two-level design.
         factors: Factors assigned to the first columns.
         dummies: Number of columns after the factors left as dummies.
+        nulls: Names of factors known to have no true effect (for example a
+            setting that cannot matter in the experiment). Their apparent
+            effects are noise too and join the dummy columns in the estimate,
+            which guards against the dummies understating aliasing.
     """
 
     design: Design
     factors: tuple[Factor, ...]
     dummies: int
+    nulls: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         """Validates counts and name uniqueness."""
@@ -122,6 +137,8 @@ class Screen:
         names = [f.name for f in self.factors]
         if len(set(names)) != len(names):
             raise ValueError("factor names must be unique")
+        if not set(self.nulls) <= set(names):
+            raise ValueError("nulls must name existing factors")
 
     def runs(self) -> tuple[Run, ...]:
         """Expands the design into named runs with their overrides."""
@@ -162,7 +179,14 @@ class Screen:
 
         first = len(self.factors)
         dummy = tuple(effect(first + i) for i in range(self.dummies))
-        noise = math.sqrt(sum(e * e for e in dummy) / len(dummy))
+        null = tuple(
+            effect(column)
+            for column, factor in enumerate(self.factors)
+            if factor.name in self.nulls
+        )
+        noise_terms = (*dummy, *null)
+        noise = math.sqrt(sum(e * e for e in noise_terms) / len(noise_terms))
+        critical = CRITICAL[min(len(noise_terms), max(CRITICAL))]
         effects: list[Effect] = []
         for column, factor in enumerate(self.factors):
             value = effect(column)
@@ -170,10 +194,9 @@ class Screen:
                 ratio = abs(value) / noise
             else:
                 ratio = math.inf if abs(value) > TINY else 0.0
-            effects.append(
-                Effect(factor.name, value, ratio, ratio >= SIGNIFICANT)
-            )
-        return Analysis(tuple(effects), dummy, noise)
+            significant = ratio >= critical and factor.name not in self.nulls
+            effects.append(Effect(factor.name, value, ratio, significant))
+        return Analysis(tuple(effects), noise_terms, noise)
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
