@@ -3,11 +3,11 @@
 import dataclasses
 import json
 import pathlib
-import shutil
 
 from tokenizers import Tokenizer
 
 from tinylm import manifest, packing, tokenizer
+from tinylm.atomic import Staging
 from tinylm.clean import SOURCES, Options, apply, dedupe
 from tinylm.tokens import Token
 
@@ -132,7 +132,7 @@ class Prepare:
             ValueError: If the corpus has no known sources or no text.
         """
         if out.exists():
-            raise FileExistsError(out)
+            raise FileExistsError(out)  # fail before reading anything
         sources = self.read(corpus)
         train_lines: list[str] = []
         dev_lines: list[str] = []
@@ -154,19 +154,12 @@ class Prepare:
             sum(len(line) + 1 for line in dev_lines),
             manifest.build(corpus, names).entries,
         )
-        staging = out.with_name(out.name + ".partial")
-        shutil.rmtree(staging, ignore_errors=True)
-        staging.mkdir(parents=True)
-        try:
-            tokenizer.save(tok, staging / "tokenizer.json")
-            train_stream.store(staging / "train")
-            dev_stream.store(staging / "dev")
-            (staging / "stats.json").write_text(
+        with Staging(out) as staged:
+            tokenizer.save(tok, staged / "tokenizer.json")
+            train_stream.store(staged / "train")
+            dev_stream.store(staged / "dev")
+            (staged / "stats.json").write_text(
                 json.dumps(dataclasses.asdict(stats), indent=2, sort_keys=True)
                 + "\n"
             )
-            staging.rename(out)
-        except BaseException:
-            shutil.rmtree(staging, ignore_errors=True)
-            raise
         return stats

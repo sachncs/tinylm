@@ -23,7 +23,7 @@ class Optimizer:
     @property
     def param_groups(self) -> list[dict[str, float]]:
         """All parameter groups of all parts."""
-        return [g for part in self.parts for g in part.param_groups]  # pyright: ignore[reportReturnType]
+        return [g for part in self.parts for g in part.param_groups]
 
     def zero_grad(self) -> None:
         """Clears gradients of every part."""

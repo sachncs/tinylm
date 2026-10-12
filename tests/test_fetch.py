@@ -114,3 +114,24 @@ def test_pin_validates_other_fields():
         pin(repo="no-slash")
     with pytest.raises(ValueError, match="patterns"):
         pin(patterns=())
+
+
+def test_existing_manifest_is_the_trust_anchor_and_is_never_overwritten(
+    tmp_path: pathlib.Path,
+):
+    first = Fetch(tmp_path / "d1", tmp_path / "m", Fake())
+    first.run(pin())
+    anchor = (tmp_path / "m" / "tiny.json").read_bytes()
+    Fetch(tmp_path / "d2", tmp_path / "m", Fake()).run(pin())
+    assert (tmp_path / "m" / "tiny.json").read_bytes() == anchor
+    changed = Fake({"a.txt": b"different\n", "sub/b.txt": b"beta\n"})
+    with pytest.raises(manifest.Error, match="differs"):
+        Fetch(tmp_path / "d3", tmp_path / "m", changed).run(pin())
+    assert not (tmp_path / "d3" / "tiny").exists()
+    assert (tmp_path / "m" / "tiny.json").read_bytes() == anchor
+
+
+def test_existing_data_without_a_manifest_fails_loudly(tmp_path: pathlib.Path):
+    (tmp_path / "data" / "tiny").mkdir(parents=True)
+    with pytest.raises(FileNotFoundError):
+        Fetch(tmp_path / "data", tmp_path / "m", Fake()).run(pin())

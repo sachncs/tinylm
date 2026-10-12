@@ -29,7 +29,9 @@ packages = ["src/tinylm"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-ra --strict-markers"
+addopts = "-ra --strict-markers --strict-config"
+filterwarnings = ["error"]
+xfail_strict = true
 markers = [
     "e2e: end-to-end tests that run the full pipeline on tiny fixtures",
 ]
@@ -40,7 +42,7 @@ indent-width = 4
 src = ["src", "tests"]
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "N", "D", "UP", "B", "SIM", "PL"]
+select = ["E", "F", "I", "N", "D", "UP", "B", "SIM", "PL", "BLE", "S110", "S112", "PGH", "RUF100", "W"]
 ignore = ["D107", "D203", "D213"]
 
 [tool.ruff.lint.pydocstyle]
@@ -54,3 +56,4 @@ include = ["src", "tests"]
 pythonVersion = "3.14"
 typeCheckingMode = "strict"
 reportUnknownMemberType = false
+reportUnnecessaryTypeIgnoreComment = true

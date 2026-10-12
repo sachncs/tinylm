@@ -3,12 +3,12 @@
 import dataclasses
 import json
 import pathlib
-import shutil
 
 import numpy
 import torch
 
 from tinylm import manifest
+from tinylm.atomic import Staging
 
 VERSION = 1
 BIN_NAME = "tokens.bin"
@@ -104,30 +104,21 @@ class Token:
         Raises:
             FileExistsError: If directory already exists.
         """
-        if directory.exists():
-            raise FileExistsError(directory)
-        staging = directory.with_name(directory.name + ".partial")
-        shutil.rmtree(staging, ignore_errors=True)
-        staging.mkdir(parents=True)
-        try:
+        with Staging(directory) as staged:
             array = numpy.ascontiguousarray(
                 self.ids, dtype=dtype_for(self.vocab)
             )
-            (staging / BIN_NAME).write_bytes(array.tobytes())
+            (staged / BIN_NAME).write_bytes(array.tobytes())
             meta = {
                 "version": VERSION,
                 "dtype": array.dtype.name,
                 "length": int(array.size),
                 "vocab": self.vocab,
-                "sha256": manifest.digest(staging / BIN_NAME),
+                "sha256": manifest.digest(staged / BIN_NAME),
             }
-            (staging / META_NAME).write_text(
+            (staged / META_NAME).write_text(
                 json.dumps(meta, indent=2, sort_keys=True) + "\n"
             )
-            staging.rename(directory)
-        except BaseException:
-            shutil.rmtree(staging, ignore_errors=True)
-            raise
 
     @classmethod
     def load(cls, directory: pathlib.Path, verify: bool = False) -> Token:

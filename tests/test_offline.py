@@ -16,8 +16,8 @@ def test_connections_are_blocked_inside_and_restored_after():
     with Offline():
         with pytest.raises(Error, match="network"):
             socket.create_connection(("example.com", 80), timeout=1)
-        with pytest.raises(Error):
-            socket.socket().connect(("127.0.0.1", 9))
+        with pytest.raises(Error), socket.socket() as sock:
+            sock.connect(("127.0.0.1", 9))
     original = socket.socket.connect
     with Offline():
         pass

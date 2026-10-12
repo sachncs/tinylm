@@ -19,4 +19,4 @@ def set_seed(seed: int) -> None:
     if not 0 <= seed <= MAX_SEED:
         raise ValueError(f"seed must be in [0, {MAX_SEED}], got {seed}")
     random.seed(seed)
-    torch.random.manual_seed(seed)  # pyright: ignore[reportUnknownMemberType]
+    torch.random.manual_seed(seed)

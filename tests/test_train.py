@@ -190,7 +190,7 @@ class TestRun:
     def test_non_finite_loss_raises(self, tmp_path: pathlib.Path):
         broken = net()
         with torch.no_grad():
-            broken.final_norm.weight.fill_(float("nan"))  # pyright: ignore[reportAttributeAccessIssue, reportCallIssue]
+            broken.final_norm.weight.fill_(float("nan"))
         with pytest.raises(Error, match="non-finite"):
             train().run(broken, noise(), tmp_path)
 

@@ -37,8 +37,8 @@ class Offline:
             os.environ[flag] = ON
         self.saved_connect = socket.socket.connect
         self.saved_create = socket.create_connection
-        socket.socket.connect = refuse  # pyright: ignore[reportAttributeAccessIssue]
-        socket.create_connection = refuse  # pyright: ignore[reportAttributeAccessIssue]
+        socket.socket.connect = refuse
+        socket.create_connection = refuse
         return self
 
     def __exit__(
@@ -49,7 +49,7 @@ class Offline:
     ) -> None:
         """Restores the environment and the socket functions."""
         socket.socket.connect = self.saved_connect  # pyright: ignore[reportAttributeAccessIssue]
-        socket.create_connection = self.saved_create  # pyright: ignore[reportAttributeAccessIssue]
+        socket.create_connection = self.saved_create
         for flag, old in self.saved_env.items():
             if old is None:
                 os.environ.pop(flag, None)

@@ -30,7 +30,7 @@ def bench(**kw: object) -> Bench:
             global_every=2,
         )
     )
-    return Bench(net, tokenizer_, "cpu", **kw)  # pyright: ignore[reportArgumentType]
+    return Bench(net, tokenizer_, "cpu", **kw)
 
 
 def write(path: pathlib.Path, rows: list[dict[str, str]]) -> None:
