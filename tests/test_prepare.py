@@ -4,14 +4,16 @@ import json
 import pathlib
 
 import pytest
-import torch
 
-from tinylm import clean, prepare, tokenizer
+from tinylm import tokenizer
+from tinylm.clean import Options
+from tinylm.prepare import Prepare
+from tinylm.tokens import Token
 
 pytestmark = pytest.mark.e2e
 
 
-def write_corpus(root: pathlib.Path) -> pathlib.Path:
+def corpus(root: pathlib.Path) -> pathlib.Path:
     root.mkdir(parents=True, exist_ok=True)
     (root / "childes.train.txt").write_text(
         "".join(
@@ -30,72 +32,95 @@ def write_corpus(root: pathlib.Path) -> pathlib.Path:
     return root
 
 
-def settings(**overrides: object) -> prepare.Settings:
+def prepare(**overrides: object) -> Prepare:
     values: dict[str, object] = {
-        "vocab_size": 300,
-        "tokenizer_kind": "bpe",
-        "dev_block_lines": 20,
-        "dev_every_blocks": 10,
-        "options": clean.Options(),
+        "vocab": 300,
+        "kind": "bpe",
+        "block": 20,
+        "every": 10,
+        "options": Options(),
     }
     values.update(overrides)
-    return prepare.Settings(**values)  # pyright: ignore[reportArgumentType]
+    return Prepare(**values)  # pyright: ignore[reportArgumentType]
 
 
-def test_artifacts_counts_bos_cleaning_and_vocab_range(tmp_path: pathlib.Path):
+def test_outputs_counts_bos_cleaning_and_lineage(tmp_path: pathlib.Path):
     out = tmp_path / "out"
-    stats = prepare.run(write_corpus(tmp_path / "c"), out, settings())
-    for name in ("tokenizer.json", "train.pt", "dev.pt", "stats.json"):
+    stats = prepare().run(corpus(tmp_path / "c"), out)
+    for name in (
+        "tokenizer.json",
+        "stats.json",
+        "train/tokens.bin",
+        "dev/tokens.bin",
+    ):
         assert (out / name).is_file()
-    train = torch.load(out / "train.pt")
-    dev = torch.load(out / "dev.pt")
+    train, dev = Token.load(out / "train"), Token.load(out / "dev")
     tok = tokenizer.load(out / "tokenizer.json")
-    assert train.numel() == stats.train_tokens > 5 * stats.dev_tokens > 0
-    assert dev.numel() == stats.dev_tokens
-    assert stats.dev_chars > stats.dev_tokens
-    assert json.loads((out / "stats.json").read_text())["train_tokens"] == (
-        stats.train_tokens
-    )
-    assert int(train.min()) >= 0 and int(train.max()) < tok.get_vocab_size()
+    assert len(train) == stats.train_tokens > 5 * stats.dev_tokens > 0
+    assert len(dev) == stats.dev_tokens and stats.dev_chars > stats.dev_tokens
+    assert train.vocab == tok.get_vocab_size()
     bos, eos = tok.token_to_id("<bos>"), tok.token_to_id("<eos>")
-    assert int((train == bos).sum()) > 100 and int((train == eos).sum()) == 0
-    text = tok.decode([int(i) for i in train[:2000]])
+    ids = train.ids
+    assert int((ids == bos).sum()) > 100 and int((ids == eos).sum()) == 0
+    text = tok.decode([int(i) for i in ids[:2000]])
     assert "*MOT" not in text and "WHO IS" not in text and "“" not in text
+    saved = json.loads((out / "stats.json").read_text())
+    assert saved["version"] == 1 and saved["train_tokens"] == stats.train_tokens
+    assert {item["name"] for item in saved["inputs"]} == {
+        "childes.train.txt",
+        "open_subtitles.train.txt",
+        "gutenberg.train.txt",
+    }
+    assert all(len(item["sha256"]) == 64 for item in saved["inputs"])
 
 
-def test_preparation_is_byte_deterministic(tmp_path: pathlib.Path):
-    corpus = write_corpus(tmp_path / "c")
-    prepare.run(corpus, tmp_path / "a", settings())
-    prepare.run(corpus, tmp_path / "b", settings())
-    for name in ("tokenizer.json", "train.pt", "dev.pt", "stats.json"):
+def test_run_is_byte_deterministic_and_refuses_existing_output(
+    tmp_path: pathlib.Path,
+):
+    source = corpus(tmp_path / "c")
+    prepare().run(source, tmp_path / "a")
+    prepare().run(source, tmp_path / "b")
+    for name in (
+        "tokenizer.json",
+        "stats.json",
+        "train/tokens.bin",
+        "train/meta.json",
+        "dev/tokens.bin",
+    ):
         assert (tmp_path / "a" / name).read_bytes() == (
             tmp_path / "b" / name
         ).read_bytes()
+    with pytest.raises(FileExistsError):
+        prepare().run(source, tmp_path / "a")
+    assert not list(tmp_path.glob("*.partial"))
 
 
-def test_negative_inputs(tmp_path: pathlib.Path):
-    with pytest.raises(FileNotFoundError):
-        prepare.run(tmp_path / "nope", tmp_path / "o", settings())
-    other = tmp_path / "other"
-    other.mkdir()
-    (other / "tweets.train.txt").write_text("hi\n")
-    with pytest.raises(ValueError, match="source"):
-        prepare.run(other, tmp_path / "o", settings())
+def test_failed_run_leaves_no_output(tmp_path: pathlib.Path):
     empty = tmp_path / "empty"
     empty.mkdir()
     (empty / "childes.train.txt").write_text("")
     with pytest.raises(ValueError, match="corpus"):
-        prepare.run(empty, tmp_path / "o", settings())
+        prepare().run(empty, tmp_path / "out")
+    assert not (tmp_path / "out").exists()
+    assert not list(tmp_path.glob("*.partial"))
+
+
+def test_negative_inputs(tmp_path: pathlib.Path):
+    with pytest.raises(FileNotFoundError):
+        prepare().run(tmp_path / "nope", tmp_path / "o")
+    other = tmp_path / "other"
+    other.mkdir()
+    (other / "tweets.train.txt").write_text("hi\n")
+    with pytest.raises(ValueError, match="source"):
+        prepare().run(other, tmp_path / "o")
     bad = tmp_path / "bad"
     bad.mkdir()
     (bad / "childes.train.txt").write_bytes(b"*MOT:\t\xff\xfe bad\n" * 50)
     with pytest.raises(UnicodeDecodeError):
-        prepare.run(bad, tmp_path / "o", settings())
+        prepare().run(bad, tmp_path / "o")
 
 
-@pytest.mark.parametrize("field", ["dev_block_lines", "dev_every_blocks"])
-def test_non_positive_dev_settings_rejected(tmp_path: pathlib.Path, field: str):
+@pytest.mark.parametrize("field", ["block", "every"])
+def test_non_positive_split_settings_rejected(field: str):
     with pytest.raises(ValueError, match=field):
-        prepare.run(
-            write_corpus(tmp_path / "c"), tmp_path / "o", settings(**{field: 0})
-        )
+        prepare(**{field: 0})
