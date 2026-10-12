@@ -131,3 +131,13 @@ def test_parts_count_shared_weights_once():
     parts = Layers(net()).parts()
     assert sum(parts.values()) == model.count(net())
     assert parts["head"] == 0
+
+
+def test_attention_mass_accounts_for_the_recency_penalty():
+    plain = net(recency=True)
+    for block in plain.blocks:
+        slope: Any = block.attn
+        slope.slope.data.fill_(5.0)
+    (steep,) = Layers(plain).attention(tokens(24), (2,))
+    (flat,) = Layers(net(recency=True)).attention(tokens(24), (2,))
+    assert all(a < b for a, b in zip(steep.layers, flat.layers, strict=True))

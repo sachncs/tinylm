@@ -127,6 +127,9 @@ class Layers:
             )
             q, k = (t.view(shape).transpose(1, 2) for t in (q, k))
             scores = q @ k.transpose(-2, -1) * (q.shape[-1] ** -0.5)
+            penalty = block.attn.penalty(length, scores.device)
+            if penalty is not None:
+                scores = scores - penalty.detach()
             probs = functional.softmax(
                 scores.masked_fill(~mask, float("-inf")), dim=-1
             )

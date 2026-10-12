@@ -20,6 +20,7 @@ NON_POSITIVE_FIELDS = (
     "activation",
     "norm",
     "codebook_sizes",
+    "recency",
 )
 
 
@@ -44,6 +45,9 @@ class Config:
         norm: "rms" (RMSNorm) or "dyt" (Dynamic Tanh, a norm-free layer).
         codebook_sizes: Sizes of learned codebooks placed between consecutive
             stages of blocks, e.g. (32768, 16384); empty disables them.
+        recency: Add a learned per-head penalty slope * distance to attention
+            scores. Slopes start at 0 (plain attention) and cannot go below 0,
+            so each head learns how local to be.
     """
 
     vocab_size: int = 16_384
@@ -58,6 +62,7 @@ class Config:
     activation: str = "gelu"
     norm: str = "rms"
     codebook_sizes: tuple[int, ...] = ()
+    recency: bool = False
 
     def __post_init__(self) -> None:
         """Validates field ranges and head divisibility."""
@@ -72,6 +77,8 @@ class Config:
             raise ValueError("codebook_sizes must all be positive")
         if self.codebook_sizes and self.n_layers <= len(self.codebook_sizes):
             raise ValueError("n_layers must exceed the number of codebooks")
+        if self.recency not in (True, False):
+            raise ValueError("recency must be a bool")
         if self.activation not in ACTIVATIONS:
             raise ValueError(f"activation must be one of {ACTIVATIONS}")
         if self.norm not in NORMS:
@@ -187,6 +194,25 @@ class Attention(nn.Module):
         self.n_heads = config.n_heads
         self.qkv = nn.Linear(config.d_model, 3 * config.d_model, bias=False)
         self.proj = nn.Linear(config.d_model, config.d_model, bias=False)
+        self.slope = (
+            nn.Parameter(torch.zeros(config.n_heads))
+            if config.recency
+            else None
+        )
+
+    def penalty(self, length: int, device: torch.device) -> torch.Tensor | None:
+        """Per-head score penalty (heads, length, length), or None if off.
+
+        Negative slopes act as 0, so a head can only learn to prefer nearer
+        keys. torch.where (not clamp) is used because clamp has no gradient
+        exactly at the boundary, where every slope starts.
+        """
+        if self.slope is None:
+            return None
+        positions = torch.arange(length, device=device)
+        distance = (positions.unsqueeze(1) - positions.unsqueeze(0)).abs()
+        slope = torch.where(self.slope >= 0, self.slope, 0.0)
+        return slope.view(-1, 1, 1) * distance
 
     def forward(
         self, x: torch.Tensor, mask: torch.Tensor | None, causal: bool
@@ -195,14 +221,24 @@ class Attention(nn.Module):
 
         mask is an explicit boolean visibility mask, or None for full
         attention (causal when `causal` is set), which lets the fused
-        kernel run without a materialised mask.
+        kernel run without a materialised mask. With recency on, the mask
+        becomes a float bias that also carries the distance penalty.
         """
         batch, length, width = x.shape
         q, k, v = self.qkv(x).chunk(3, dim=-1)
         shape = (batch, length, self.n_heads, width // self.n_heads)
         q, k, v = (t.view(shape).transpose(1, 2) for t in (q, k, v))
+        penalty = self.penalty(length, x.device)
+        fused = mask is None and causal
+        if penalty is not None:
+            if mask is None:
+                mask = visibility(length, length, causal, is_global=True).to(
+                    x.device
+                )
+            bias = (-penalty).unsqueeze(0).masked_fill(~mask, float("-inf"))
+            mask, fused = bias.to(q.dtype), False
         out = scaled_dot_product_attention(
-            q, k, v, attn_mask=mask, is_causal=mask is None and causal
+            q, k, v, attn_mask=mask, is_causal=fused
         )
         return self.proj(out.transpose(1, 2).reshape(batch, length, width))
 

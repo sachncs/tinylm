@@ -372,3 +372,84 @@ class TestMaskCacheAndFastPath:
             fast = net(batch(), causal=causal)
             slow = net(batch(), causal=causal, local_window=12)
         torch.testing.assert_close(fast, slow, rtol=1e-5, atol=1e-5)
+
+
+def attentions(net: model.TinyLM) -> list[Any]:
+    """Attention modules of net, untyped so tests can reach the slope."""
+    return [block.attn for block in net.blocks]
+
+
+class TestRecency:
+    """Per-head distance penalty on attention scores (config.recency)."""
+
+    def test_zero_penalty_equals_plain_full_attention_exactly(self):
+        plain = make_net(window=16, global_every=1)
+        recent = make_net(window=16, global_every=1, recency=True)
+        recent.load_state_dict(plain.state_dict(), strict=False)
+        torch.testing.assert_close(
+            recent(batch()), plain(batch()), rtol=1e-5, atol=1e-6
+        )
+
+    def test_adds_one_slope_per_head_per_layer_starting_at_zero(self):
+        plain, recent = make_net(), make_net(recency=True)
+        assert model.count(recent) - model.count(plain) == 4 * 4
+        for attn in attentions(recent):
+            assert torch.equal(attn.slope, torch.zeros(4))
+
+    def test_a_positive_slope_changes_the_output_and_stays_causal(self):
+        net = make_net(window=16, global_every=1, recency=True)
+        before = net(batch())
+        for attn in attentions(net):
+            attn.slope.data.fill_(0.5)
+        after = net(batch())
+        assert not torch.allclose(before, after)
+        changed = batch().clone()
+        changed[:, -1] = (changed[:, -1] + 1) % 64
+        torch.testing.assert_close(net(changed)[:, :-1], after[:, :-1])
+
+    def test_a_negative_slope_is_treated_as_no_penalty(self):
+        net = make_net(window=16, global_every=1, recency=True)
+        zero = net(batch())
+        for attn in attentions(net):
+            attn.slope.data.fill_(-3.0)
+        torch.testing.assert_close(net(batch()), zero)
+
+    def test_the_slope_receives_a_gradient_at_zero_so_it_can_be_learned(self):
+        net = make_net(recency=True).train()
+        logits = net(batch())
+        loss = torch.nn.functional.cross_entropy(
+            logits[:, :-1].reshape(-1, 64), batch()[:, 1:].reshape(-1)
+        )
+        loss.backward()
+        grads = [a.slope.grad for a in attentions(net)]
+        assert all(g is not None and bool(g.abs().sum() > 0) for g in grads)
+
+    def test_penalty_is_none_when_off_and_grows_with_distance_when_on(self):
+        off = attentions(make_net())[0]
+        assert off.penalty(5, torch.device("cpu")) is None
+        on = attentions(make_net(recency=True))[0]
+        on.slope.data.fill_(0.25)
+        penalty = on.penalty(5, torch.device("cpu"))
+        assert penalty is not None
+        assert penalty.shape == (4, 5, 5)
+        assert float(penalty[0, 3, 3].detach()) == 0
+        assert float(penalty[0, 3, 0].detach()) == pytest.approx(0.75)
+
+    def test_works_bidirectionally_and_with_a_local_window(self):
+        net = make_net(recency=True)
+        for attn in attentions(net):
+            attn.slope.data.fill_(0.3)
+        assert net(batch(), causal=False).shape == (2, 12, 64)
+        assert net(batch(), local_window=3).shape == (2, 12, 64)
+
+    def test_invalid_value_is_rejected(self):
+        with pytest.raises(ValueError, match="recency"):
+            make_config(recency="yes")
+
+    def test_compiled_forward_matches_eager(self):
+        net = make_net(recency=True)
+        for attn in attentions(net):
+            attn.slope.data.fill_(0.2)
+        torch.testing.assert_close(
+            torch.compile(net)(batch()), net(batch()), rtol=1e-4, atol=1e-5
+        )
