@@ -1,8 +1,11 @@
 """Atomic directory creation: all of it appears at once, or none of it."""
 
+import collections.abc
+import os
 import pathlib
 import shutil
 import types
+from typing import BinaryIO
 
 
 class Staging:
@@ -42,3 +45,31 @@ class Staging:
             self.partial.rename(self.target)
         else:
             shutil.rmtree(self.partial)
+
+
+def durable(
+    path: pathlib.Path, write: collections.abc.Callable[[BinaryIO], object]
+) -> None:
+    """Writes a file so that it is either fully there or not there at all.
+
+    The content goes to a temporary sibling, is flushed and fsync-ed, then
+    renamed over the target; the directory is fsync-ed too so the rename
+    survives a crash. If `write` raises, the previous file (if any) is left
+    untouched and the temporary file is removed.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    try:
+        with temporary.open("wb") as handle:
+            write(handle)
+            handle.flush()
+            os.fsync(handle.fileno())
+        temporary.replace(path)
+    except BaseException:
+        temporary.unlink(missing_ok=True)
+        raise
+    descriptor = os.open(path.parent, os.O_RDONLY)
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
