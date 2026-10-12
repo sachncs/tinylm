@@ -76,3 +76,37 @@ The user expects BLiMP above 0.90 is attainable and wants the **best combination
 
 ## Verification
 Per commit: `uv run pytest`, `ruff check`, `pyright` green before committing. Offline proof: socket-patched end-to-end test. Storage: size = 2 bytes/token test; throughput test that `rows` does not copy the stream. Screening: planted-effect synthetic designs recover known effects and flag dummies as null. Final: official pipeline on the exported finalist.
+
+## Status (2026-10-12, evening)
+
+Done and tested (389 tests, 99.9% statement coverage, strict types, warnings
+are errors, versioned pre-commit gate): offline pinned data (`Fetch`,
+`Offline`), compact memory-mapped token stores (`Token`), streaming `Prepare`
+(2.7 GB peak on Strict, byte-identical to the old output) with decontaminated
+dev set, `Train` (versioned, fingerprinted, durable checkpoints), `Experiment`
+(provenance, restore, resolved config saved), `Bench` (BLiMP-style scorer with
+bootstrap intervals, confident-correct precision, calibration), `Layers`,
+`Probes`, `Screen` (24-run Plackett-Burman with dummy-column noise, foldover,
+full factorial with Lenth), `Export` (generated wrapper, verified for every
+model option), `Official` (official-pipeline wrapper), `Device`, `jobs`.
+`docs/review.md` lists every finding with evidence and status.
+
+Running now: the 24-run, 20-factor screen on Strict-Small from a frozen
+snapshot of the corrected code (about 2.5 hours; ~6 minutes per run).
+
+Remaining, in order (nothing below has been done):
+1. Analyse the screen (`scripts/screen.py analyse`); flag factors above the
+   dummy-column noise. Many arms sit at chance on BLiMP after one epoch, so
+   bits/char carries the analysis.
+2. Full 2^k factorial (`Factorial`) on the flagged factors to find
+   interactions; mid-range line searches for continuous ones.
+3. Replicated confirmation (more seeds, 4 epochs) of the Pareto survivors;
+   dropout and weight decay need this, since 1 epoch cannot show them.
+4. Final models at the stated sizes: Strict-Small ~4M, Strict ~13M; run the
+   official pipeline (`scripts/official.py`) and compare with a paired
+   bootstrap. MultiLingual (~22M) is blocked on gated Hugging Face data.
+5. Open review items: re-measure `torch.compile` on an idle GPU (H4), near
+   duplicates (D2), languages without spaces (D5), in-house vs official scorer
+   cross-check on a trained model (V5).
+6. Report: update `docs/paper.md` only with measured, interval-qualified
+   numbers; the 0.90 BLiMP stretch target is reported as reached or not.
