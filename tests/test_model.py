@@ -314,7 +314,7 @@ class TestCodebooks:
     def test_output_is_a_mixture_of_codes_and_grads_flow(self):
         book = model.Codebook(8, 16, model.Config(d_model=16))
         x = torch.randn(3, 5, 16)
-        delta = book(x) - x
+        delta = (book(x) - x).detach()
         assert float(delta.min()) >= book.codes.min().item() - 1e-5
         assert float(delta.max()) <= book.codes.max().item() + 1e-5
         net = make_net(**self.cfg())
