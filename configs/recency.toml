@@ -1,0 +1,15 @@
+# Per-head recency penalty vs the plain frozen candidate (paired with the
+# d00s* runs of confirm.toml: same seeds, 4 epochs, dropout 0).
+base = "configs/small.toml"
+
+[[run]]
+name = "r00s0"
+set = ["train.epochs=4", "train.seed=0", "model.recency=true", "train.compile=true"]
+
+[[run]]
+name = "r00s1"
+set = ["train.epochs=4", "train.seed=1", "model.recency=true", "train.compile=true"]
+
+[[run]]
+name = "r00s2"
+set = ["train.epochs=4", "train.seed=2", "model.recency=true", "train.compile=true"]
