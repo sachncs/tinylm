@@ -516,3 +516,87 @@ class TestExclusive:
         torch.testing.assert_close(
             torch.compile(net)(batch()), net(batch()), rtol=1e-4, atol=1e-5
         )
+
+
+def crosses(net: model.TinyLM) -> list[Any]:
+    """Cross-attention modules of net (None where a layer has none)."""
+    return [block.cross for block in net.blocks]
+
+
+class TestCross:
+    """Cross attention from token states to learned memory slots."""
+
+    def test_adds_exactly_the_documented_parameters_to_listed_layers(self):
+        plain, cross = make_net(), make_net(cross=(1, 2), slots=8)
+        width, slots = 32, 8
+        per_layer = 2 * width * width + 2 * slots * width + width
+        assert model.count(cross) - model.count(plain) == 2 * per_layer
+
+    def test_only_the_listed_layers_have_it(self):
+        net = make_net(cross=(0, 3))
+        assert [c is not None for c in crosses(net)] == [
+            True,
+            False,
+            False,
+            True,
+        ]
+
+    def test_with_the_output_projection_zeroed_it_is_the_plain_model(self):
+        plain = make_net()
+        net = make_net(cross=(1, 2))
+        net.load_state_dict(plain.state_dict(), strict=False)
+        for cross in crosses(net):
+            if cross is not None:
+                cross.proj.weight.data.zero_()
+        torch.testing.assert_close(net(batch()), plain(batch()))
+
+    def test_it_changes_the_output_and_stays_causal(self):
+        plain, net = make_net(), make_net(cross=(1, 2))
+        net.load_state_dict(plain.state_dict(), strict=False)
+        assert not torch.allclose(net(batch()), plain(batch()))
+        changed = batch().clone()
+        changed[:, -1] = (changed[:, -1] + 1) % 64
+        torch.testing.assert_close(net(changed)[:, :-1], net(batch())[:, :-1])
+
+    def test_the_memory_slots_receive_gradients_and_are_used(self):
+        net = make_net(cross=(1,), slots=4).train()
+        cross = crosses(net)[1]
+        cross.proj.weight.data.normal_(std=0.1)
+        logits = net(batch())
+        loss = torch.nn.functional.cross_entropy(
+            logits[:, :-1].reshape(-1, 64), batch()[:, 1:].reshape(-1)
+        )
+        loss.backward()
+        assert float(cross.keys.grad.abs().sum()) > 0
+        assert float(cross.values.grad.abs().sum()) > 0
+
+    def test_editing_the_slots_changes_the_output(self):
+        net = make_net(cross=(1,), slots=4)
+        cross = crosses(net)[1]
+        cross.proj.weight.data.normal_(std=0.1)
+        before = net(batch()).detach()
+        cross.values.data.add_(1.0)
+        assert not torch.allclose(net(batch()).detach(), before)
+
+    def test_combines_with_exclusive_recency_windows_and_bidirectional_use(
+        self,
+    ):
+        net = make_net(cross=(1, 2), exclusive=(1, 2), recency=True)
+        assert net(batch(), causal=False).shape == (2, 12, 64)
+        assert net(batch(), local_window=3).shape == (2, 12, 64)
+
+    @pytest.mark.parametrize("bad", [(4,), (-1,), (1, 1), (0.5,)])
+    def test_invalid_layer_lists_are_rejected(self, bad: tuple[Any, ...]):
+        with pytest.raises(ValueError, match="cross"):
+            make_config(cross=bad)
+
+    @pytest.mark.parametrize("slots", [0, -2])
+    def test_slots_must_be_positive(self, slots: int):
+        with pytest.raises(ValueError, match="slots"):
+            make_config(slots=slots)
+
+    def test_compiled_forward_matches_eager(self):
+        net = make_net(cross=(1, 2))
+        torch.testing.assert_close(
+            torch.compile(net)(batch()), net(batch()), rtol=1e-4, atol=1e-5
+        )

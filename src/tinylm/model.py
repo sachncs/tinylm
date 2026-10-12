@@ -23,6 +23,7 @@ NON_POSITIVE_FIELDS = (
     "codebook_sizes",
     "recency",
     "exclusive",
+    "cross",
 )
 
 
@@ -53,6 +54,9 @@ class Config:
         exclusive: Indices of layers using exclusive self attention (Zhai,
             2026, arXiv:2603.09078): each head's output has its component
             along the token's own value vector removed.
+        cross: Indices of layers that also attend to learned memory slots
+            (cross attention whose keys and values are parameters).
+        slots: Number of memory slots per cross-attention layer.
     """
 
     vocab_size: int = 16_384
@@ -69,6 +73,8 @@ class Config:
     codebook_sizes: tuple[int, ...] = ()
     recency: bool = False
     exclusive: tuple[int, ...] = ()
+    cross: tuple[int, ...] = ()
+    slots: int = 32
 
     def __post_init__(self) -> None:
         """Validates field ranges and head divisibility."""
@@ -83,14 +89,10 @@ class Config:
             raise ValueError("codebook_sizes must all be positive")
         if self.codebook_sizes and self.n_layers <= len(self.codebook_sizes):
             raise ValueError("n_layers must exceed the number of codebooks")
-        layers = tuple(self.exclusive)
-        if not all(
-            type(i) is int and 0 <= i < self.n_layers for i in layers
-        ) or len(set(layers)) != len(layers):
-            raise ValueError(
-                "exclusive must list distinct layer indices in [0, n_layers)"
+        for name in ("exclusive", "cross"):
+            object.__setattr__(
+                self, name, layer_list(name, getattr(self, name), self.n_layers)
             )
-        object.__setattr__(self, "exclusive", tuple(sorted(layers)))
         if self.recency not in (True, False):
             raise ValueError("recency must be a bool")
         if self.activation not in ACTIVATIONS:
@@ -101,6 +103,24 @@ class Config:
             raise ValueError("dropout must be in [0, 1)")
         if self.d_model % self.n_heads:
             raise ValueError("d_model must be divisible by n_heads")
+
+
+def layer_list(
+    name: str, values: tuple[int, ...], count: int
+) -> tuple[int, ...]:
+    """Returns sorted distinct layer indices.
+
+    Raises:
+        ValueError: If any index is not an int in [0, count) or repeats.
+    """
+    layers = tuple(values)
+    if not all(type(i) is int and 0 <= i < count for i in layers) or len(
+        set(layers)
+    ) != len(layers):
+        raise ValueError(
+            f"{name} must list distinct layer indices in [0, n_layers)"
+        )
+    return tuple(sorted(layers))
 
 
 def visibility(
@@ -269,14 +289,52 @@ class Attention(nn.Module):
         return self.proj(out.transpose(1, 2).reshape(batch, length, width))
 
 
+class Cross(nn.Module):
+    """Multi-head cross attention from token states to learned memory slots.
+
+    Keys and values are parameters shared by every position, so the block is
+    token-wise (it cannot leak information across positions) and adds only
+    2 * width^2 + 2 * slots * width parameters.
+    """
+
+    def __init__(self, config: Config) -> None:
+        super().__init__()
+        self.n_heads = config.n_heads
+        self.query = nn.Linear(config.d_model, config.d_model, bias=False)
+        self.proj = nn.Linear(config.d_model, config.d_model, bias=False)
+        self.keys = nn.Parameter(
+            torch.randn(config.slots, config.d_model) * INIT_STD
+        )
+        self.values = nn.Parameter(
+            torch.randn(config.slots, config.d_model) * INIT_STD
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Attends from each position of (batch, length, width) to the slots."""
+        batch, length, width = x.shape
+        heads, head = self.n_heads, width // self.n_heads
+        q = self.query(x).view(batch, length, heads, head).transpose(1, 2)
+        slots = self.keys.shape[0]
+        k = self.keys.view(1, slots, heads, head).transpose(1, 2)
+        v = self.values.view(1, slots, heads, head).transpose(1, 2)
+        out = scaled_dot_product_attention(
+            q, k.expand(batch, -1, -1, -1), v.expand(batch, -1, -1, -1)
+        )
+        return self.proj(out.transpose(1, 2).reshape(batch, length, width))
+
+
 class Block(nn.Module):
     """Pre-norm transformer block."""
 
-    def __init__(self, config: Config, exclusive: bool = False) -> None:
+    def __init__(
+        self, config: Config, exclusive: bool = False, cross: bool = False
+    ) -> None:
         super().__init__()
         hidden = FFN_MULTIPLIER * config.d_model
         self.attn_norm = norm(config)
         self.attn = Attention(config, exclusive)
+        self.cross_norm = norm(config) if cross else None
+        self.cross = Cross(config) if cross else None
         self.ffn_norm = norm(config)
         self.act = nn.ReLU() if config.activation == "relu" else nn.GELU()
         self.ffn_in = nn.Linear(config.d_model, hidden, bias=False)
@@ -286,6 +344,8 @@ class Block(nn.Module):
     def init_residual(self, std: float) -> None:
         """Re-initialises the two layers that write into the residual stream."""
         nn.init.normal_(self.attn.proj.weight, std=std)
+        if self.cross is not None:
+            nn.init.normal_(self.cross.proj.weight, std=std)
         nn.init.normal_(self.ffn_out.weight, std=std)
 
     def forward(
@@ -293,6 +353,8 @@ class Block(nn.Module):
     ) -> torch.Tensor:
         """Applies attention and feed-forward sublayers with residuals."""
         x = x + self.drop(self.attn(self.attn_norm(x), mask, causal))
+        if self.cross is not None and self.cross_norm is not None:
+            x = x + self.drop(self.cross(self.cross_norm(x)))
         hidden = self.act(self.ffn_in(self.ffn_norm(x)))
         return x + self.drop(self.ffn_out(hidden))
 
@@ -306,7 +368,8 @@ class TinyLM(nn.Module):
         self.tok_emb = nn.Embedding(config.vocab_size, config.d_model)
         self.pos_emb = nn.Embedding(config.max_seq_len, config.d_model)
         blocks = [
-            Block(config, i in config.exclusive) for i in range(config.n_layers)
+            Block(config, i in config.exclusive, i in config.cross)
+            for i in range(config.n_layers)
         ]
         self.blocks = nn.ModuleList(blocks)
         self.codebooks = nn.ModuleList(

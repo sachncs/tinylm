@@ -43,7 +43,7 @@ def net(**overrides: Any) -> model.TinyLM:
         {"tie_embeddings": False},
         {"dropout": 0.2},
         {"codebook_sizes": (48, 24, 12)},
-        {"recency": True, "exclusive": (1, 2)},
+        {"recency": True, "exclusive": (1, 2), "cross": (0, 3), "slots": 6},
     ],
     ids=["default", "relu-dyt", "untied", "dropout", "codebooks", "xsa"],
 )

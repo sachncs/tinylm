@@ -1,0 +1,27 @@
+# Cross attention to 32 learned memory slots in layers 2-5, alone (c00) and
+# together with exclusive self attention (b00); paired with d00s* and x00s*.
+base = "configs/small.toml"
+
+[[run]]
+name = "c00s0"
+set = ["train.epochs=4", "train.seed=0", "model.cross=2,3,4,5", "train.compile=true"]
+
+[[run]]
+name = "c00s1"
+set = ["train.epochs=4", "train.seed=1", "model.cross=2,3,4,5", "train.compile=true"]
+
+[[run]]
+name = "c00s2"
+set = ["train.epochs=4", "train.seed=2", "model.cross=2,3,4,5", "train.compile=true"]
+
+[[run]]
+name = "b00s0"
+set = ["train.epochs=4", "train.seed=0", "model.cross=2,3,4,5", "train.compile=true", "model.exclusive=2,3,4,5"]
+
+[[run]]
+name = "b00s1"
+set = ["train.epochs=4", "train.seed=1", "model.cross=2,3,4,5", "train.compile=true", "model.exclusive=2,3,4,5"]
+
+[[run]]
+name = "b00s2"
+set = ["train.epochs=4", "train.seed=2", "model.cross=2,3,4,5", "train.compile=true", "model.exclusive=2,3,4,5"]
