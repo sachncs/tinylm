@@ -151,3 +151,22 @@ def test_rows_validate_arguments():
     for start in (995, -1):
         with pytest.raises(IndexError, match="range"):
             token.rows(torch.tensor([start]), 10)
+
+
+def test_fingerprint_is_stable_across_memory_and_disk_and_detects_any_change(
+    tmp_path: pathlib.Path,
+):
+    data = ids()
+    token = Token.from_tensor(data, vocab=8192)
+    token.store(tmp_path / "s")
+    assert token.fingerprint() == Token.load(tmp_path / "s").fingerprint()
+    changed = data.clone()
+    changed[500] = (changed[500] + 1) % 8192
+    assert (
+        Token.from_tensor(changed, vocab=8192).fingerprint()
+        != token.fingerprint()
+    )
+    assert (
+        Token.from_tensor(data, vocab=9000).fingerprint() != token.fingerprint()
+    )
+    assert len(token.fingerprint()) == 64

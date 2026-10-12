@@ -8,8 +8,8 @@ FIXED (with commit), OPEN (planned), CHECKED (suspected, measured, no defect).
 ## Engineering
 | # | Sev | Finding | Evidence | Status |
 |---|-----|---------|----------|--------|
-| E1 | P1 | Resume never checks that config or data match the checkpoint; a changed run silently continues from foreign state. | `Checkpoint` has no version, config hash or data hash (`train.py`). | OPEN |
-| E2 | P1 | Checkpoint and metrics writes are not durable: no fsync of file or directory; metrics.json is not atomic. | `grep fsync src` = 0. | OPEN |
+| E1 | P1 | Resume never checked that config or data match the checkpoint; a changed run silently continued from foreign state. | `Checkpoint` had no version, config hash or data hash. | FIXED (fingerprint of config, model and data; versioned checkpoint; mismatch raises) |
+| E2 | P1 | Checkpoint and metrics writes were not durable: no fsync of file or directory; metrics.json not atomic. | `grep fsync src` = 0. | FIXED (`atomic.durable`: temp file, fsync, rename, directory fsync) |
 | E3 | P1 | Results carry no provenance (git revision, dirty flag, library versions, device, config and data fingerprints), so a number cannot be traced to its code. | `Metrics` has no such fields. | OPEN |
 | E4 | P2 | Output is `print` only: no structured logs, no run log file. | 1 `print` in src, 0 `logging`. | OPEN |
 | E5 | P2 | 17 type/lint suppressions remain; each hides a check. | `grep -rn "pyright: ignore\|noqa"` = 17. | OPEN (justify or remove each) |
@@ -30,8 +30,8 @@ FIXED (with commit), OPEN (planned), CHECKED (suspected, measured, no defect).
 ## Hardware acceleration
 | # | Sev | Finding | Evidence | Status |
 |---|-----|---------|----------|--------|
-| H1 | P1 | (fixed in `device.py`: availability and fallback checks, loud errors) `device = "mps"` was trusted blindly: no availability check, and MPS CPU-fallback env var is not verified off (silent CPU fallback hides slow or wrong paths). | configs, `train.py`. | PARTLY FIXED (`Device` exists; wiring into Train/Experiment pending) |
-| H2 | P2 | Throughput is wall-clock including evaluation and callbacks, and not synchronised with the device. | `experiment.py:246-248`. | OPEN |
+| H1 | P1 | (fixed in `device.py`: availability and fallback checks, loud errors) `device = "mps"` was trusted blindly: no availability check, and MPS CPU-fallback env var is not verified off (silent CPU fallback hides slow or wrong paths). | configs, `train.py`. | FIXED (`Train.run` resolves the device first and raises with the reason) |
+| H2 | P2 | Throughput was wall-clock including evaluation and callbacks, not synchronised with the device. | `experiment.py`. | FIXED (`Result.seconds`: device-synchronised, callbacks excluded) |
 | H3 | P2 | No device-memory release between runs in one process. | seen risk. | FIXED for `screen` (processes); OPEN elsewhere |
 | H4 | P3 | `torch.compile`/graph capture not assessed on MPS. | -- | OPEN (measure, report) |
 

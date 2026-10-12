@@ -1,6 +1,7 @@
 """Compact, memory-mapped token storage that needs no network."""
 
 import dataclasses
+import hashlib
 import json
 import pathlib
 
@@ -14,6 +15,7 @@ VERSION = 1
 BIN_NAME = "tokens.bin"
 META_NAME = "meta.json"
 SMALL_VOCAB = 1 << 16
+CHUNK = 1 << 22
 META_KEYS = ("version", "dtype", "length", "vocab", "sha256")
 
 
@@ -80,6 +82,17 @@ class Token:
     def __len__(self) -> int:
         """Number of tokens in the stream."""
         return int(self.ids.size)
+
+    def fingerprint(self) -> str:
+        """SHA-256 of the vocabulary size, length and every id."""
+        hasher = hashlib.sha256(f"{self.vocab}:{len(self)}:".encode())
+        kind = dtype_for(self.vocab)
+        for start in range(0, len(self), CHUNK):
+            part = numpy.ascontiguousarray(
+                self.ids[start : start + CHUNK], dtype=kind
+            )
+            hasher.update(part.tobytes())
+        return hasher.hexdigest()
 
     def rows(self, starts: torch.Tensor, width: int) -> torch.Tensor:
         """Gathers windows ids[start : start + width] as a long tensor.

@@ -6,6 +6,7 @@ import pytest
 import torch
 
 from tinylm import ledger, model, seeding
+from tinylm.device import Error as DeviceError
 from tinylm.tokens import Token
 from tinylm.train import Error, Train
 
@@ -243,3 +244,41 @@ class TestEvaluate:
     def test_rejects_stream_shorter_than_one_sequence(self):
         with pytest.raises(ValueError, match="short"):
             train().evaluate(net(), noise(10))
+
+
+class TestIntegrity:
+    def test_resume_refuses_a_changed_config_or_changed_data(
+        self, tmp_path: pathlib.Path
+    ):
+        train(lr=3e-3).run(net(), noise(), tmp_path, stop=3)
+        with pytest.raises(Error, match="changed"):
+            train(lr=1e-3).run(net(), noise(), tmp_path, resume=True)
+        with pytest.raises(Error, match="changed"):
+            train(lr=3e-3).run(net(), noise(1999), tmp_path, resume=True)
+        train(lr=3e-3).run(net(), noise(), tmp_path, resume=True)
+
+    def test_checkpoint_cadence_does_not_count_as_a_change(
+        self, tmp_path: pathlib.Path
+    ):
+        train(every=10).run(net(), noise(), tmp_path, stop=3)
+        train(every=7).run(net(), noise(), tmp_path, resume=True)
+
+    def test_unknown_checkpoint_version_and_foreign_files_fail_loudly(
+        self, tmp_path: pathlib.Path
+    ):
+        train().run(net(), noise(), tmp_path, stop=3)
+        saved = torch.load(tmp_path / "checkpoint.pt")
+        saved["version"] = 99
+        torch.save(saved, tmp_path / "checkpoint.pt")
+        with pytest.raises(Error, match="version"):
+            train().run(net(), noise(), tmp_path, resume=True)
+        torch.save({"hello": 1}, tmp_path / "checkpoint.pt")
+        with pytest.raises(Error, match="not a valid checkpoint"):
+            train().run(net(), noise(), tmp_path, resume=True)
+
+    def test_run_reports_training_seconds_and_uses_loud_device_resolution(
+        self, tmp_path: pathlib.Path
+    ):
+        assert train().run(net(), noise(), tmp_path).seconds > 0.0
+        with pytest.raises(DeviceError, match="device"):
+            train(device="tpu").run(net(), noise(), tmp_path / "x")

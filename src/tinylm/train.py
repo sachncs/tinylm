@@ -2,17 +2,23 @@
 
 import collections.abc
 import dataclasses
+import hashlib
+import json
 import math
 import pathlib
+import time
 
 import torch
 from torch.nn import functional
 
 from tinylm import ledger, model, objectives, optim, packing, tokenizer
+from tinylm.atomic import durable
+from tinylm.device import Device
 from tinylm.ema import Average
 from tinylm.tokens import Token
 
 CHECKPOINT = "checkpoint.pt"
+VERSION = 2
 MASK = tokenizer.SPECIAL_TOKENS.index("<mask>")
 STRIDE = 1_000_003
 SCHEDULES = ("cosine", "wsd")
@@ -30,11 +36,14 @@ class Result:
         losses: Training loss of every step taken in this call.
         steps: Total optimizer steps taken so far (including resumed ones).
         budget: The epoch ledger after the call.
+        seconds: Device-synchronised time spent in training steps, excluding
+            callbacks such as evaluation.
     """
 
     losses: list[float]
     steps: int
     budget: ledger.Budget
+    seconds: float
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -47,6 +56,8 @@ class Checkpoint:
         budget: Ledger snapshot.
         ema: Averaged weights, or None when EMA is off.
         step: Optimizer steps already taken.
+        fingerprint: Hash of the configuration and data that produced it.
+        version: Layout version of this checkpoint.
     """
 
     model: dict[str, torch.Tensor]
@@ -54,13 +65,14 @@ class Checkpoint:
     budget: dict[str, int]
     ema: dict[str, torch.Tensor] | None
     step: int
+    fingerprint: str
+    version: int = VERSION
 
     def write(self, path: pathlib.Path) -> None:
-        """Writes the checkpoint atomically (temp file, then rename)."""
-        path.parent.mkdir(parents=True, exist_ok=True)
-        temporary = path.with_suffix(".tmp")
-        torch.save(dataclasses.asdict(self), temporary)
-        temporary.replace(path)
+        """Writes the checkpoint durably (fsync, then atomic rename)."""
+        durable(
+            path, lambda handle: torch.save(dataclasses.asdict(self), handle)
+        )
 
     @classmethod
     def read(cls, path: pathlib.Path, device: str) -> Checkpoint:
@@ -74,9 +86,12 @@ class Checkpoint:
             raise FileNotFoundError(path)
         raw = torch.load(path, map_location=device)
         try:
-            return cls(**raw)
+            saved = cls(**raw)
         except TypeError as error:
             raise Error(f"{path} is not a valid checkpoint") from error
+        if saved.version != VERSION:
+            raise Error(f"{path} has unsupported version {saved.version}")
+        return saved
 
 
 @dataclasses.dataclass(slots=True)
@@ -107,19 +122,32 @@ class Session:
         average = Average(net, train.ema) if train.ema else None
         return cls(net, optimizer, average, budget)
 
-    def checkpoint(self, path: pathlib.Path) -> None:
-        """Writes the full state atomically."""
+    def checkpoint(self, path: pathlib.Path, fingerprint: str) -> None:
+        """Writes the full state durably."""
         Checkpoint(
             self.net.state_dict(),
             self.optimizer.state_dict(),
             self.budget.state(),
             self.average.state_dict() if self.average else None,
             self.step,
+            fingerprint,
         ).write(path)
 
-    def restore(self, path: pathlib.Path, device: str) -> None:
-        """Loads a checkpoint written by checkpoint()."""
+    def restore(
+        self, path: pathlib.Path, device: str, fingerprint: str
+    ) -> None:
+        """Loads a checkpoint written by checkpoint().
+
+        Raises:
+            Error: If the checkpoint came from a different configuration or
+                dataset, so continuing would silently mix two runs.
+        """
         saved = Checkpoint.read(path, device)
+        if saved.fingerprint != fingerprint:
+            raise Error(
+                "configuration or data changed since this checkpoint was "
+                "written; refusing to resume"
+            )
         self.net.load_state_dict(saved.model)
         self.optimizer.load_state_dict(saved.optimizer)
         self.budget = ledger.Budget.from_state(saved.budget)
@@ -253,6 +281,24 @@ class Train:
             1.0 + math.cos(math.pi * progress)
         )
 
+    def fingerprint(self, config: model.Config, tokens: Token) -> str:
+        """Hash of everything that must match for a resume to be valid.
+
+        Covers every hyperparameter except the checkpoint cadence, the model
+        configuration and the training data.
+        """
+        settings = dataclasses.asdict(self)
+        del settings["every"]
+        text = json.dumps(
+            {
+                "train": settings,
+                "model": dataclasses.asdict(config),
+                "data": tokens.fingerprint(),
+            },
+            sort_keys=True,
+        )
+        return hashlib.sha256(text.encode()).hexdigest()
+
     def chunk(self) -> int:
         """Tokens per training chunk: inputs plus the shifted target."""
         return self.seq_len + 1
@@ -305,9 +351,12 @@ class Train:
             Error: If a loss is not finite.
             ledger.Error: If the epoch cap would be exceeded.
         """
+        device = Device(self.device)
+        device.resolve()
         if self.seq_len > net.config.max_seq_len:
             raise ValueError("seq_len exceeds model max_seq_len")
         length = len(tokens)
+        fingerprint = self.fingerprint(net.config, tokens)
         if self.batches(length, 0) == 0:
             raise ValueError("stream too short for one batch")
         per_epoch = [self.batches(length, e) for e in range(self.epochs)]
@@ -317,9 +366,11 @@ class Train:
         )
         path = out / CHECKPOINT
         if resume:
-            session.restore(path, self.device)
+            session.restore(path, self.device, fingerprint)
         losses: list[float] = []
         done = 0
+        seconds = 0.0
+        clock = time.perf_counter()
         for epoch in range(self.epochs):
             if session.step >= done + per_epoch[epoch]:
                 done += per_epoch[epoch]
@@ -329,8 +380,10 @@ class Train:
             )
             for index in range(session.step - done, per_epoch[epoch]):
                 if stop is not None and session.step >= stop:
-                    session.checkpoint(path)
-                    return Result(losses, session.step, session.budget)
+                    session.checkpoint(path, fingerprint)
+                    device.sync()
+                    seconds += time.perf_counter() - clock
+                    return Result(losses, session.step, session.budget, seconds)
                 chosen = starts[index * self.batch : (index + 1) * self.batch]
                 batch = tokens.rows(chosen, self.chunk()).to(self.device)
                 rate = self.rate(
@@ -338,13 +391,18 @@ class Train:
                 )
                 losses.append(session.advance(self, batch, rate))
                 if session.step % self.every == 0:
-                    session.checkpoint(path)
+                    session.checkpoint(path, fingerprint)
             done += per_epoch[epoch]
+            device.sync()
+            seconds += time.perf_counter() - clock
             if after:
                 after(epoch)
-        session.checkpoint(path)
+            clock = time.perf_counter()
+        session.checkpoint(path, fingerprint)
         session.finish()
-        return Result(losses, session.step, session.budget)
+        device.sync()
+        seconds += time.perf_counter() - clock
+        return Result(losses, session.step, session.budget, seconds)
 
     def evaluate(self, net: model.TinyLM, tokens: Token) -> float:
         """Mean next-token cross-entropy over non-overlapping sequences.

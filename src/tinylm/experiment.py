@@ -4,11 +4,11 @@ import dataclasses
 import json
 import math
 import pathlib
-import time
 import tomllib
 import typing
 
 from tinylm import model, seeding, tokenizer
+from tinylm.atomic import durable
 from tinylm.bench import Bench
 from tinylm.offline import Offline
 from tinylm.tokens import Token
@@ -243,9 +243,7 @@ class Experiment:
             net.train()
 
         self.out.mkdir(parents=True, exist_ok=True)
-        started = time.perf_counter()
         result = self.train.run(net, train, self.out, after=after)
-        elapsed = time.perf_counter() - started
         bench = Bench(net, tok, self.train.device)
         benchmarks: dict[str, float] = {}
         summaries: list[Summary] = []
@@ -260,7 +258,7 @@ class Experiment:
             parameters=model.count(net),
             dev_loss=losses,
             epochs_used=result.budget.epochs_used,
-            tokens_per_second=result.budget.consumed / elapsed,
+            tokens_per_second=result.budget.consumed / result.seconds,
             train_tokens=len(train),
             benchmarks=benchmarks,
             bits_per_char=losses[-1]
@@ -269,9 +267,8 @@ class Experiment:
             / stats["dev_chars"],
             confidence=tuple(summaries),
         )
-        (self.out / "metrics.json").write_text(
-            json.dumps(dataclasses.asdict(metrics), indent=2) + "\n"
-        )
+        text = json.dumps(dataclasses.asdict(metrics), indent=2) + "\n"
+        durable(self.out / "metrics.json", lambda h: h.write(text.encode()))
         return metrics
 
 
