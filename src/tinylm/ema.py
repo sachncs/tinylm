@@ -8,7 +8,7 @@ import torch
 from tinylm import model
 
 
-class Ema:
+class Average:
     """Tracks an exponential moving average of a model's state.
 
     Attributes:

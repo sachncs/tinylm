@@ -41,16 +41,16 @@ class Options:
 
     Attributes:
         keep_speaker_tags: Keep "MOT: " style prefixes instead of stripping.
-        repair_case: Convert ALL-CAPS lines to sentence case.
+        recase: Convert ALL-CAPS lines to sentence case.
         drop_stage_directions: Drop fully bracketed lines like "[laughs.]".
     """
 
     keep_speaker_tags: bool = False
-    repair_case: bool = True
+    recase: bool = True
     drop_stage_directions: bool = True
 
 
-def normalize_typography(text: str) -> str:
+def typography(text: str) -> str:
     """Straightens quotes and dashes, removes controls, collapses spaces."""
     text = text.translate(TYPOGRAPHY)
     text = "".join(
@@ -59,7 +59,7 @@ def normalize_typography(text: str) -> str:
     return " ".join(text.split())
 
 
-def repair_case(text: str) -> str:
+def recase(text: str) -> str:
     """Converts an all-uppercase line to sentence case.
 
     Lines with fewer than MIN_CASE_LETTERS letters, or any lowercase letter,
@@ -75,12 +75,12 @@ def repair_case(text: str) -> str:
     return lowered
 
 
-def strip_speaker_tag(line: str) -> str:
+def untag(line: str) -> str:
     """Removes a leading CHILDES or Switchboard speaker tag, if present."""
     return SPEAKER_TAG.sub("", line, count=1)
 
 
-def clean_lines(
+def apply(
     lines: collections.abc.Iterable[str], source: str, options: Options
 ) -> collections.abc.Iterator[str]:
     """Cleans lines of one source, dropping those that become empty.
@@ -105,14 +105,14 @@ def clean_lines(
         heading = WIKI_HEADING.match(line.strip())
         if source == "simple_wiki" and heading:
             line = heading.group(1)
-        line = normalize_typography(line)
-        if options.repair_case:
-            line = repair_case(line)
+        line = typography(line)
+        if options.recase:
+            line = recase(line)
         if line:
             yield prefix + line
 
 
-def drop_duplicate_long_lines(
+def dedupe(
     lines: collections.abc.Iterable[str], min_words: int
 ) -> collections.abc.Iterator[str]:
     """Drops repeats of lines with at least min_words words.

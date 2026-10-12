@@ -5,12 +5,12 @@ import dataclasses
 HARD_EPOCH_CAP = 10
 
 
-class BudgetExceededError(Exception):
+class Error(Exception):
     """Raised when training would exceed its allowed number of epochs."""
 
 
 @dataclasses.dataclass
-class DataBudget:
+class Budget:
     """Counts every training token against max_epochs x unique_tokens.
 
     Every view of the data counts: re-masked, re-segmented, augmented and
@@ -55,13 +55,13 @@ class DataBudget:
 
         Raises:
             ValueError: If count is not positive.
-            BudgetExceededError: If this would exceed the epoch cap; nothing
+            Error: If this would exceed the epoch cap; nothing
                 is recorded in that case.
         """
         if count <= 0:
             raise ValueError("count must be positive")
         if count > self.remaining:
-            raise BudgetExceededError(
+            raise Error(
                 f"{self.consumed + count} tokens exceed {self.max_epochs} "
                 f"epochs ({self.limit} tokens)"
             )
@@ -72,7 +72,7 @@ class DataBudget:
         return dataclasses.asdict(self)
 
     @classmethod
-    def from_state(cls, state: dict[str, int]) -> DataBudget:
+    def from_state(cls, state: dict[str, int]) -> Budget:
         """Restores a budget from state().
 
         Raises:

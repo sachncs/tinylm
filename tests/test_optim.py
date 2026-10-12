@@ -11,7 +11,7 @@ from tinylm import model, optim, seeding
 def net() -> model.TinyLM:
     seeding.set_seed(0)
     return model.TinyLM(
-        model.ModelConfig(
+        model.Config(
             vocab_size=64,
             max_seq_len=16,
             d_model=16,

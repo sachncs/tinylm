@@ -8,7 +8,7 @@ import pathlib
 CHUNK_BYTES = 1 << 20
 
 
-class IntegrityError(Exception):
+class Error(Exception):
     """Raised when a file or manifest fails verification."""
 
 
@@ -28,46 +28,44 @@ class Entry:
 
 
 @dataclasses.dataclass(frozen=True)
-class Manifest:
+class Corpus:
     """A sorted collection of entries."""
 
     entries: tuple[Entry, ...]
 
 
-def file_digest(path: pathlib.Path) -> str:
+def digest(path: pathlib.Path) -> str:
     """Returns the hex SHA-256 of a file, reading it in chunks."""
-    digest = hashlib.sha256()
+    hasher = hashlib.sha256()
     with path.open("rb") as handle:
         while chunk := handle.read(CHUNK_BYTES):
-            digest.update(chunk)
-    return digest.hexdigest()
+            hasher.update(chunk)
+    return hasher.hexdigest()
 
 
-def verify_file(path: pathlib.Path, entry: Entry) -> None:
+def verify(path: pathlib.Path, entry: Entry) -> None:
     """Checks a file against its entry.
 
     Raises:
-        IntegrityError: If the file is empty, truncated, not valid UTF-8, or
+        Error: If the file is empty, truncated, not valid UTF-8, or
             has the wrong checksum.
     """
     size = path.stat().st_size
     if size == 0:
-        raise IntegrityError(f"{entry.name} is empty")
+        raise Error(f"{entry.name} is empty")
     if size != entry.num_bytes:
-        raise IntegrityError(
-            f"{entry.name} size {size} != expected {entry.num_bytes}"
-        )
+        raise Error(f"{entry.name} size {size} != expected {entry.num_bytes}")
     try:
         with path.open(encoding="utf-8") as handle:
             while handle.read(CHUNK_BYTES):
                 pass
     except UnicodeDecodeError as error:
-        raise IntegrityError(f"{entry.name} is not valid utf-8") from error
-    if file_digest(path) != entry.sha256:
-        raise IntegrityError(f"{entry.name} sha256 mismatch")
+        raise Error(f"{entry.name} is not valid utf-8") from error
+    if digest(path) != entry.sha256:
+        raise Error(f"{entry.name} sha256 mismatch")
 
 
-def build(directory: pathlib.Path, names: list[str]) -> Manifest:
+def build(directory: pathlib.Path, names: list[str]) -> Corpus:
     """Builds a manifest for the named files under directory.
 
     Raises:
@@ -84,38 +82,38 @@ def build(directory: pathlib.Path, names: list[str]) -> Manifest:
             root
         ):
             raise ValueError(f"{name!r} must be a relative path in the corpus")
-        entries.append(Entry(name, file_digest(path), path.stat().st_size))
-    return Manifest(tuple(sorted(entries, key=lambda e: e.name)))
+        entries.append(Entry(name, digest(path), path.stat().st_size))
+    return Corpus(tuple(sorted(entries, key=lambda e: e.name)))
 
 
-def save(manifest: Manifest, path: pathlib.Path) -> None:
+def save(manifest: Corpus, path: pathlib.Path) -> None:
     """Writes a manifest as stable, sorted JSON."""
     payload = {"entries": [dataclasses.asdict(e) for e in manifest.entries]}
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
 
 
-def load(path: pathlib.Path) -> Manifest:
+def load(path: pathlib.Path) -> Corpus:
     """Reads a manifest.
 
     Raises:
-        IntegrityError: If the file is not a well-formed manifest.
+        Error: If the file is not a well-formed manifest.
     """
     try:
         payload = json.loads(path.read_text())
         entries = tuple(Entry(**item) for item in payload["entries"])
     except (ValueError, KeyError, TypeError) as error:
-        raise IntegrityError(f"malformed manifest {path}") from error
-    return Manifest(entries)
+        raise Error(f"malformed manifest {path}") from error
+    return Corpus(entries)
 
 
-def verify_directory(directory: pathlib.Path, manifest: Manifest) -> None:
+def check(directory: pathlib.Path, manifest: Corpus) -> None:
     """Verifies every manifest entry exists and is intact.
 
     Raises:
-        IntegrityError: If any file is missing or fails verification.
+        Error: If any file is missing or fails verification.
     """
     for entry in manifest.entries:
         path = directory / entry.name
         if not path.is_file():
-            raise IntegrityError(f"{entry.name} is missing")
-        verify_file(path, entry)
+            raise Error(f"{entry.name} is missing")
+        verify(path, entry)

@@ -44,7 +44,7 @@ def settings(**overrides: object) -> prepare.Settings:
 
 def test_artifacts_counts_bos_cleaning_and_vocab_range(tmp_path: pathlib.Path):
     out = tmp_path / "out"
-    stats = prepare.prepare(write_corpus(tmp_path / "c"), out, settings())
+    stats = prepare.run(write_corpus(tmp_path / "c"), out, settings())
     for name in ("tokenizer.json", "train.pt", "dev.pt", "stats.json"):
         assert (out / name).is_file()
     train = torch.load(out / "train.pt")
@@ -65,8 +65,8 @@ def test_artifacts_counts_bos_cleaning_and_vocab_range(tmp_path: pathlib.Path):
 
 def test_preparation_is_byte_deterministic(tmp_path: pathlib.Path):
     corpus = write_corpus(tmp_path / "c")
-    prepare.prepare(corpus, tmp_path / "a", settings())
-    prepare.prepare(corpus, tmp_path / "b", settings())
+    prepare.run(corpus, tmp_path / "a", settings())
+    prepare.run(corpus, tmp_path / "b", settings())
     for name in ("tokenizer.json", "train.pt", "dev.pt", "stats.json"):
         assert (tmp_path / "a" / name).read_bytes() == (
             tmp_path / "b" / name
@@ -75,27 +75,27 @@ def test_preparation_is_byte_deterministic(tmp_path: pathlib.Path):
 
 def test_negative_inputs(tmp_path: pathlib.Path):
     with pytest.raises(FileNotFoundError):
-        prepare.prepare(tmp_path / "nope", tmp_path / "o", settings())
+        prepare.run(tmp_path / "nope", tmp_path / "o", settings())
     other = tmp_path / "other"
     other.mkdir()
     (other / "tweets.train.txt").write_text("hi\n")
     with pytest.raises(ValueError, match="source"):
-        prepare.prepare(other, tmp_path / "o", settings())
+        prepare.run(other, tmp_path / "o", settings())
     empty = tmp_path / "empty"
     empty.mkdir()
     (empty / "childes.train.txt").write_text("")
     with pytest.raises(ValueError, match="corpus"):
-        prepare.prepare(empty, tmp_path / "o", settings())
+        prepare.run(empty, tmp_path / "o", settings())
     bad = tmp_path / "bad"
     bad.mkdir()
     (bad / "childes.train.txt").write_bytes(b"*MOT:\t\xff\xfe bad\n" * 50)
     with pytest.raises(UnicodeDecodeError):
-        prepare.prepare(bad, tmp_path / "o", settings())
+        prepare.run(bad, tmp_path / "o", settings())
 
 
 @pytest.mark.parametrize("field", ["dev_block_lines", "dev_every_blocks"])
 def test_non_positive_dev_settings_rejected(tmp_path: pathlib.Path, field: str):
     with pytest.raises(ValueError, match=field):
-        prepare.prepare(
+        prepare.run(
             write_corpus(tmp_path / "c"), tmp_path / "o", settings(**{field: 0})
         )

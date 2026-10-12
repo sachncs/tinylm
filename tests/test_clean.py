@@ -6,16 +6,16 @@ from tinylm import clean
 
 
 def lines(src: list[str], source: str, **kw: bool) -> list[str]:
-    return list(clean.clean_lines(src, source, clean.Options(**kw)))
+    return list(clean.apply(src, source, clean.Options(**kw)))
 
 
 def test_typography_quotes_dashes_controls_and_whitespace():
-    assert clean.normalize_typography("“Hi,” she said — it’s ok") == (
+    assert clean.typography("“Hi,” she said — it’s ok") == (
         '"Hi," she said - it\'s ok'
     )
-    assert clean.normalize_typography("  a \t b   c \n") == "a b c"
-    assert clean.normalize_typography("a\x00b\x07c") == "abc"
-    assert clean.normalize_typography("   ") == ""
+    assert clean.typography("  a \t b   c \n") == "a b c"
+    assert clean.typography("a\x00b\x07c") == "abc"
+    assert clean.typography("   ") == ""
 
 
 @pytest.mark.parametrize(
@@ -32,14 +32,14 @@ def test_typography_quotes_dashes_controls_and_whitespace():
     ],
 )
 def test_repair_case(text: str, expected: str):
-    assert clean.repair_case(text) == expected
+    assert clean.recase(text) == expected
 
 
 def test_speaker_tags():
-    assert clean.strip_speaker_tag("*MOT:\tmore what?") == "more what?"
-    assert clean.strip_speaker_tag("A:\tYeah, uh,") == "Yeah, uh,"
-    assert clean.strip_speaker_tag("Right.") == "Right."
-    assert clean.strip_speaker_tag("Note: this matters") == "Note: this matters"
+    assert clean.untag("*MOT:\tmore what?") == "more what?"
+    assert clean.untag("A:\tYeah, uh,") == "Yeah, uh,"
+    assert clean.untag("Right.") == "Right."
+    assert clean.untag("Note: this matters") == "Note: this matters"
 
 
 def test_childes_pipeline_and_keep_tags_option():
@@ -71,10 +71,8 @@ def test_cleaning_is_idempotent():
 def test_drop_duplicate_long_lines_keeps_short_repeats():
     long_line = " ".join(["word"] * 25)
     out = list(
-        clean.drop_duplicate_long_lines(
-            [long_line, "Yeah.", long_line, "Yeah."], min_words=20
-        )
+        clean.dedupe([long_line, "Yeah.", long_line, "Yeah."], min_words=20)
     )
     assert out == [long_line, "Yeah.", "Yeah."]
     with pytest.raises(ValueError, match="min_words"):
-        list(clean.drop_duplicate_long_lines(["a"], min_words=0))
+        list(clean.dedupe(["a"], min_words=0))

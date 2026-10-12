@@ -24,14 +24,14 @@ def entry(path: pathlib.Path, data: bytes) -> manifest.Entry:
 
 def test_digest_matches_hashlib_and_missing_file_raises(tmp_path: pathlib.Path):
     data = b"hello world\n" * 1000
-    assert manifest.file_digest(write(tmp_path / "a.txt", data)) == sha(data)
+    assert manifest.digest(write(tmp_path / "a.txt", data)) == sha(data)
     with pytest.raises(FileNotFoundError):
-        manifest.file_digest(tmp_path / "missing.txt")
+        manifest.digest(tmp_path / "missing.txt")
 
 
 def test_verify_accepts_intact_file(tmp_path: pathlib.Path):
     path = write(tmp_path / "a.txt", b"abc\n")
-    manifest.verify_file(path, entry(path, b"abc\n"))
+    manifest.verify(path, entry(path, b"abc\n"))
 
 
 @pytest.mark.parametrize(
@@ -51,8 +51,8 @@ def test_verify_rejects_corruption(
     tmp_path: pathlib.Path, data: bytes, expected: manifest.Entry, match: str
 ):
     path = write(tmp_path / "a.txt", data)
-    with pytest.raises(manifest.IntegrityError, match=match):
-        manifest.verify_file(path, expected)
+    with pytest.raises(manifest.Error, match=match):
+        manifest.verify(path, expected)
 
 
 def test_build_save_load_verify_round_trip_is_sorted(tmp_path: pathlib.Path):
@@ -67,22 +67,22 @@ def test_build_save_load_verify_round_trip_is_sorted(tmp_path: pathlib.Path):
     ]
     loaded = manifest.load(target)
     assert loaded == built
-    manifest.verify_directory(tmp_path, loaded)
+    manifest.check(tmp_path, loaded)
 
 
 def test_verify_directory_reports_missing_file(tmp_path: pathlib.Path):
     write(tmp_path / "a.txt", b"x\n")
     built = manifest.build(tmp_path, ["a.txt"])
     (tmp_path / "a.txt").unlink()
-    with pytest.raises(manifest.IntegrityError, match="missing"):
-        manifest.verify_directory(tmp_path, built)
+    with pytest.raises(manifest.Error, match="missing"):
+        manifest.check(tmp_path, built)
 
 
 @pytest.mark.parametrize(
     "body", [b"{not json", b'{"entries": [{"name": "a"}]}']
 )
 def test_load_rejects_malformed(tmp_path: pathlib.Path, body: bytes):
-    with pytest.raises(manifest.IntegrityError, match="manifest"):
+    with pytest.raises(manifest.Error, match="manifest"):
         manifest.load(write(tmp_path / "m.json", body))
 
 

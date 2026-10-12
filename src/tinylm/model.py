@@ -23,7 +23,7 @@ NON_POSITIVE_FIELDS = (
 
 
 @dataclasses.dataclass(frozen=True)
-class ModelConfig:
+class Config:
     """Hyperparameters of TinyLM.
 
     Attributes:
@@ -81,7 +81,7 @@ class ModelConfig:
             raise ValueError("d_model must be divisible by n_heads")
 
 
-def build_attention_mask(
+def visibility(
     length: int, window: int, causal: bool, is_global: bool
 ) -> torch.Tensor:
     """Builds a boolean attention mask where True means the key is visible.
@@ -111,7 +111,7 @@ def build_attention_mask(
     return visible
 
 
-def is_global_layer(index: int, global_every: int) -> bool:
+def is_global(index: int, global_every: int) -> bool:
     """Returns True if the layer at index uses full attention."""
     if global_every <= 0:
         raise ValueError("global_every must be positive")
@@ -132,14 +132,14 @@ class DynamicTanh(nn.Module):
         return self.weight * torch.tanh(self.alpha * x) + self.bias
 
 
-def make_norm(config: ModelConfig) -> nn.RMSNorm | DynamicTanh:
+def norm(config: Config) -> nn.RMSNorm | DynamicTanh:
     """Builds the configured normalisation layer."""
     if config.norm == "dyt":
         return DynamicTanh(config.d_model)
     return nn.RMSNorm(config.d_model)
 
 
-def init_weights(module: nn.Module) -> None:
+def init(module: nn.Module) -> None:
     """GPT-style initialisation: N(0, 0.02) for linear and embedding weights."""
     if isinstance(module, nn.Linear | nn.Embedding):
         nn.init.normal_(module.weight, std=INIT_STD)
@@ -153,10 +153,10 @@ class Codebook(nn.Module):
     operation is token-wise and therefore preserves causality.
     """
 
-    def __init__(self, size: int, width: int, config: ModelConfig) -> None:
+    def __init__(self, size: int, width: int, config: Config) -> None:
         super().__init__()
         self.codes = nn.Parameter(torch.randn(size, width) * INIT_STD)
-        self.norm = make_norm(config)
+        self.norm = norm(config)
         self.scale = width**-0.5
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -168,7 +168,7 @@ class Codebook(nn.Module):
 class Attention(nn.Module):
     """Multi-head self-attention under an explicit visibility mask."""
 
-    def __init__(self, config: ModelConfig) -> None:
+    def __init__(self, config: Config) -> None:
         super().__init__()
         self.n_heads = config.n_heads
         self.qkv = nn.Linear(config.d_model, 3 * config.d_model, bias=False)
@@ -187,12 +187,12 @@ class Attention(nn.Module):
 class Block(nn.Module):
     """Pre-norm transformer block."""
 
-    def __init__(self, config: ModelConfig) -> None:
+    def __init__(self, config: Config) -> None:
         super().__init__()
         hidden = FFN_MULTIPLIER * config.d_model
-        self.attn_norm = make_norm(config)
+        self.attn_norm = norm(config)
         self.attn = Attention(config)
-        self.ffn_norm = make_norm(config)
+        self.ffn_norm = norm(config)
         self.act = nn.ReLU() if config.activation == "relu" else nn.GELU()
         self.ffn_in = nn.Linear(config.d_model, hidden, bias=False)
         self.ffn_out = nn.Linear(hidden, config.d_model, bias=False)
@@ -213,7 +213,7 @@ class Block(nn.Module):
 class TinyLM(nn.Module):
     """Decoder-only language model."""
 
-    def __init__(self, config: ModelConfig) -> None:
+    def __init__(self, config: Config) -> None:
         super().__init__()
         self.config = config
         self.tok_emb = nn.Embedding(config.vocab_size, config.d_model)
@@ -230,9 +230,9 @@ class TinyLM(nn.Module):
             for i in range(len(config.codebook_sizes))
         }
         self.emb_drop = nn.Dropout(config.dropout)
-        self.final_norm = make_norm(config)
+        self.final_norm = norm(config)
         self.head = nn.Linear(config.d_model, config.vocab_size, bias=False)
-        self.apply(init_weights)
+        self.apply(init)
         if config.tie_embeddings:
             self.head.weight = self.tok_emb.weight
         residual_std = INIT_STD / (2 * config.n_layers) ** 0.5
@@ -281,31 +281,29 @@ class TinyLM(nn.Module):
         positions = torch.arange(length, device=tokens.device)
         x = self.emb_drop(self.tok_emb(tokens) + self.pos_emb(positions))
         window = local_window or self.config.window
-        local_mask = build_attention_mask(
-            length, window, causal, is_global=False
-        ).to(x.device)
+        local_mask = visibility(length, window, causal, is_global=False).to(
+            x.device
+        )
         global_mask = (
             local_mask
             if local_window
-            else build_attention_mask(length, window, causal, True).to(x.device)
+            else visibility(length, window, causal, True).to(x.device)
         )
         for index, block in enumerate(self.blocks):
-            use_global = is_global_layer(index, self.config.global_every)
+            use_global = is_global(index, self.config.global_every)
             x = block(x, global_mask if use_global else local_mask)
             if index in self.codebook_after:
                 x = self.codebooks[self.codebook_after[index]](x)
         return self.head(self.final_norm(x))
 
 
-def count_parameters(net: nn.Module) -> int:
+def count(net: nn.Module) -> int:
     """Counts distinct trainable parameters, counting tied weights once."""
     return sum(p.numel() for p in net.parameters() if p.requires_grad)
 
 
-def check_parameter_budget(
-    net: nn.Module, budget: int = PARAMETER_BUDGET
-) -> None:
+def check(net: nn.Module, budget: int = PARAMETER_BUDGET) -> None:
     """Raises ValueError if the model has more than budget parameters."""
-    total = count_parameters(net)
+    total = count(net)
     if total > budget:
         raise ValueError(f"{total} parameters exceeds budget of {budget}")

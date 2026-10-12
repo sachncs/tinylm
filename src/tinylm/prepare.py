@@ -45,9 +45,7 @@ class Stats:
     dev_chars: int
 
 
-def read_sources(
-    corpus: pathlib.Path, options: clean.Options
-) -> dict[str, list[str]]:
+def read(corpus: pathlib.Path, options: clean.Options) -> dict[str, list[str]]:
     """Reads and cleans every source file in a corpus directory.
 
     Raises:
@@ -66,8 +64,8 @@ def read_sources(
         raise ValueError(f"no known source files (unknown: {unknown})")
     return {
         name: list(
-            clean.drop_duplicate_long_lines(
-                clean.clean_lines(
+            clean.dedupe(
+                clean.apply(
                     path.read_text(encoding="utf-8").splitlines(), name, options
                 ),
                 min_words=DEDUP_MIN_WORDS,
@@ -77,7 +75,7 @@ def read_sources(
     }
 
 
-def split_blocks(
+def split(
     lines: list[str], block_lines: int, every: int
 ) -> tuple[list[str], list[str]]:
     """Splits lines into (train, dev) by whole consecutive blocks."""
@@ -90,7 +88,7 @@ def split_blocks(
     return train, dev
 
 
-def encode_stream(tok: Tokenizer, lines: list[str]) -> torch.Tensor:
+def encode(tok: Tokenizer, lines: list[str]) -> torch.Tensor:
     """Encodes lines into one int32 stream with BOS between lines.
 
     The official evaluator prepends BOS to each sentence, so training with
@@ -100,10 +98,10 @@ def encode_stream(tok: Tokenizer, lines: list[str]) -> torch.Tensor:
     for start in range(0, len(lines), ENCODE_BATCH):
         batch = tok.encode_batch(lines[start : start + ENCODE_BATCH])
         ids.extend(encoding.ids for encoding in batch)
-    return packing.build_stream(ids, BOS_ID).to(torch.int32)
+    return packing.join(ids, BOS_ID).to(torch.int32)
 
 
-def prepare(
+def run(
     corpus: pathlib.Path, out_dir: pathlib.Path, settings: Settings
 ) -> Stats:
     """Cleans, splits, tokenises and saves a corpus.
@@ -119,11 +117,11 @@ def prepare(
         raise ValueError("dev_block_lines must be positive")
     if settings.dev_every_blocks <= 0:
         raise ValueError("dev_every_blocks must be positive")
-    sources = read_sources(corpus, settings.options)
+    sources = read(corpus, settings.options)
     train_lines: list[str] = []
     dev_lines: list[str] = []
     for name in sorted(sources):
-        train, dev = split_blocks(
+        train, dev = split(
             sources[name], settings.dev_block_lines, settings.dev_every_blocks
         )
         train_lines.extend(train)
@@ -133,8 +131,8 @@ def prepare(
     tok = tokenizer.train(
         train_lines, settings.vocab_size, settings.tokenizer_kind
     )
-    train_stream = encode_stream(tok, train_lines)
-    dev_stream = encode_stream(tok, dev_lines)
+    train_stream = encode(tok, train_lines)
+    dev_stream = encode(tok, dev_lines)
     stats = Stats(
         len(train_lines),
         len(dev_lines),

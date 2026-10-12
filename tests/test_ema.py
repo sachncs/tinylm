@@ -9,7 +9,7 @@ from tinylm import ema, model, seeding
 def net() -> model.TinyLM:
     seeding.set_seed(0)
     return model.TinyLM(
-        model.ModelConfig(
+        model.Config(
             vocab_size=32,
             max_seq_len=16,
             d_model=16,
@@ -29,7 +29,7 @@ def perturb(model_: model.TinyLM, amount: float) -> None:
 
 def test_initial_update_decay_one_and_restore():
     model_ = net()
-    average = ema.Ema(model_, decay=0.9)
+    average = ema.Average(model_, decay=0.9)
     start = average.shadow["final_norm.weight"].clone()
     torch.testing.assert_close(start, model_.state_dict()["final_norm.weight"])
     perturb(model_, 1.0)
@@ -44,7 +44,7 @@ def test_initial_update_decay_one_and_restore():
         )
     for key, value in model_.state_dict().items():
         torch.testing.assert_close(value, live[key])
-    frozen = ema.Ema(net(), decay=1.0)
+    frozen = ema.Average(net(), decay=1.0)
     before = {k: v.clone() for k, v in frozen.shadow.items()}
     perturb(model_, 1.0)
     frozen.update(model_)
@@ -54,7 +54,7 @@ def test_initial_update_decay_one_and_restore():
 
 def test_restore_happens_even_if_body_raises():
     model_ = net()
-    average = ema.Ema(model_, decay=0.5)
+    average = ema.Average(model_, decay=0.5)
     perturb(model_, 1.0)
     average.update(model_)
     live = model_.state_dict()["final_norm.weight"].clone()
@@ -65,10 +65,10 @@ def test_restore_happens_even_if_body_raises():
 
 def test_state_round_trip_and_validation():
     model_ = net()
-    average = ema.Ema(model_, decay=0.9)
+    average = ema.Average(model_, decay=0.9)
     perturb(model_, 1.0)
     average.update(model_)
-    restored = ema.Ema(net(), decay=0.9)
+    restored = ema.Average(net(), decay=0.9)
     restored.load_state_dict(average.state_dict())
     for key, value in average.shadow.items():
         torch.testing.assert_close(restored.shadow[key], value)
@@ -76,4 +76,4 @@ def test_state_round_trip_and_validation():
         restored.load_state_dict({"bogus": torch.zeros(1)})
     for decay in (-0.1, 1.1):
         with pytest.raises(ValueError, match="decay"):
-            ema.Ema(net(), decay=decay)
+            ema.Average(net(), decay=decay)

@@ -7,7 +7,7 @@ import torch
 NUM_VIEWS = 10
 
 
-def epoch_offset(epoch: int, seq_len: int) -> int:
+def offset(epoch: int, seq_len: int) -> int:
     """Returns the stream offset at which an epoch starts chunking.
 
     Offsets are spread evenly over one sequence length so that ten epochs cut
@@ -23,7 +23,7 @@ def epoch_offset(epoch: int, seq_len: int) -> int:
     return (epoch % NUM_VIEWS) * seq_len // NUM_VIEWS
 
 
-def epoch_sequences(
+def sequences(
     stream: torch.Tensor,
     seq_len: int,
     epoch: int,
@@ -51,17 +51,17 @@ def epoch_sequences(
         raise ValueError("seq_len must be positive")
     if stream.ndim != 1:
         raise ValueError("stream must be 1-D")
-    offset = epoch_offset(epoch if shift else max(epoch, 0), seq_len)
-    if not shift:
-        offset = 0
-    count = max(0, (stream.numel() - offset) // seq_len)
-    rows = stream[offset : offset + count * seq_len].reshape(count, seq_len)
+    if epoch < 0:
+        raise ValueError("epoch must be non-negative")
+    start = offset(epoch, seq_len) if shift else 0
+    count = max(0, (stream.numel() - start) // seq_len)
+    rows = stream[start : start + count * seq_len].reshape(count, seq_len)
     generator = torch.Generator()
     generator.manual_seed(seed * 1_000_003 + epoch)
     return rows[torch.randperm(count, generator=generator)]
 
 
-def build_stream(
+def join(
     lines: collections.abc.Iterable[list[int]], separator: int
 ) -> torch.Tensor:
     """Concatenates tokenised lines, ending each with the separator id."""

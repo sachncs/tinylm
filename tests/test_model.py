@@ -8,7 +8,7 @@ from tinylm import model, seeding
 PARAM_BUDGET = 50_000_000
 
 
-def make_config(**overrides: object) -> model.ModelConfig:
+def make_config(**overrides: object) -> model.Config:
     values: dict[str, object] = {
         "vocab_size": 64,
         "max_seq_len": 16,
@@ -19,7 +19,7 @@ def make_config(**overrides: object) -> model.ModelConfig:
         "global_every": 2,
     }
     values.update(overrides)
-    return model.ModelConfig(**values)  # pyright: ignore[reportArgumentType]
+    return model.Config(**values)  # pyright: ignore[reportArgumentType]
 
 
 def make_net(**overrides: object) -> model.TinyLM:
@@ -80,7 +80,7 @@ class TestConfig:
         assert make_config(codebook_sizes=[8, 4]).codebook_sizes == (8, 4)
 
     def test_defaults(self):
-        config = model.ModelConfig()
+        config = model.Config()
         assert (config.activation, config.norm, config.dropout) == (
             "gelu",
             "rms",
@@ -91,7 +91,7 @@ class TestConfig:
 
 class TestMaskAndSchedule:
     def mask(self, length: int, window: int, causal: bool, glob: bool):
-        return model.build_attention_mask(length, window, causal, glob)
+        return model.visibility(length, window, causal, glob)
 
     def test_causal_local_window(self):
         mask = self.mask(10, 3, True, False)
@@ -127,10 +127,10 @@ class TestMaskAndSchedule:
             self.mask(length, window, True, False)
 
     def test_every_fourth_layer_is_global(self):
-        flags = [model.is_global_layer(i, 4) for i in range(8)]
+        flags = [model.is_global(i, 4) for i in range(8)]
         assert flags == [False, False, False, True] * 2
         with pytest.raises(ValueError, match="positive"):
-            model.is_global_layer(0, 0)
+            model.is_global(0, 0)
 
 
 class TestForward:
@@ -198,36 +198,31 @@ class TestForward:
 
 class TestParametersAndInit:
     def test_default_config_fits_budget(self):
-        assert (
-            model.count_parameters(model.TinyLM(model.ModelConfig()))
-            < PARAM_BUDGET
-        )
+        assert model.count(model.TinyLM(model.Config())) < PARAM_BUDGET
 
     def test_tied_weights_counted_once_and_untied_adds_a_matrix(self):
         tied = make_net()
         untied = make_net(tie_embeddings=False)
         assert tied.head.weight is tied.tok_emb.weight
         assert untied.head.weight is not untied.tok_emb.weight
-        assert (
-            model.count_parameters(untied) - model.count_parameters(tied)
-        ) == 64 * 32
+        assert (model.count(untied) - model.count(tied)) == 64 * 32
 
     def test_budget_guard(self):
         net = make_net()
-        total = model.count_parameters(net)
-        model.check_parameter_budget(net, total)
+        total = model.count(net)
+        model.check(net, total)
         with pytest.raises(ValueError, match="budget"):
-            model.check_parameter_budget(net, total - 1)
+            model.check(net, total - 1)
 
     def test_init_is_small_and_residual_scaled(self):
         seeding.set_seed(0)
-        net = model.TinyLM(model.ModelConfig())
+        net = model.TinyLM(model.Config())
         assert float(net.tok_emb.weight.detach().std()) == pytest.approx(
             0.02, rel=0.1
         )
         block = net.blocks[0]
         assert isinstance(block, model.Block)
-        expected = 0.02 / (2 * model.ModelConfig().n_layers) ** 0.5
+        expected = 0.02 / (2 * model.Config().n_layers) ** 0.5
         assert float(block.attn.proj.weight.detach().std()) == pytest.approx(
             expected, rel=0.1
         )
@@ -247,9 +242,7 @@ class TestParametersAndInit:
 
 class TestDropout:
     def test_adds_no_parameters(self):
-        assert model.count_parameters(make_net()) == model.count_parameters(
-            make_net(dropout=0.3)
-        )
+        assert model.count(make_net()) == model.count(make_net(dropout=0.3))
 
     def test_eval_exact_and_train_stochastic_but_seeded(self):
         net = make_net(dropout=0.5)
@@ -304,8 +297,8 @@ class TestCodebooks:
         assert [b.codes.shape for b in books] == [(48, 32), (24, 32), (12, 32)]
 
     def test_parameters_are_counted(self):
-        base = model.count_parameters(make_net())
-        full = model.count_parameters(make_net(**self.cfg()))
+        base = model.count(make_net())
+        full = model.count(make_net(**self.cfg()))
         assert full - base == (48 + 24 + 12) * 32 + 3 * 32
 
     def test_still_causal_and_full_vocab(self):
@@ -319,7 +312,7 @@ class TestCodebooks:
         assert out_a.shape == (2, 12, 64)
 
     def test_output_is_a_mixture_of_codes_and_grads_flow(self):
-        book = model.Codebook(8, 16, model.ModelConfig(d_model=16))
+        book = model.Codebook(8, 16, model.Config(d_model=16))
         x = torch.randn(3, 5, 16)
         delta = book(x) - x
         assert float(delta.min()) >= book.codes.min().item() - 1e-5

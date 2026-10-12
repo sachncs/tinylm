@@ -20,7 +20,7 @@ MIN_SPLIT_ROWS = 2
 
 
 @dataclasses.dataclass(frozen=True)
-class HybridSpec:
+class Hybrid:
     """Hybrid objective settings.
 
     Attributes:
@@ -42,7 +42,7 @@ class HybridSpec:
             raise ValueError("mask_rate must be in (0, 1)")
 
 
-def mask_tokens(
+def corrupt(
     tokens: torch.Tensor,
     mask_rate: float,
     mask_id: int,
@@ -85,10 +85,10 @@ def mask_tokens(
     return corrupted, selected
 
 
-def hybrid_loss(
+def loss(
     net: model.TinyLM,
     batch: torch.Tensor,
-    spec: HybridSpec,
+    spec: Hybrid,
     generator: torch.Generator,
 ) -> torch.Tensor:
     """Token-weighted mean of causal and masked next-token losses.
@@ -123,7 +123,7 @@ def hybrid_loss(
         weight += causal[:, 1:].numel()
     if count > 0:
         masked = batch[:count]
-        corrupted, selected = mask_tokens(
+        corrupted, selected = corrupt(
             masked.cpu(),
             spec.mask_rate,
             spec.mask_id,
