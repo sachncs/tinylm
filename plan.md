@@ -40,10 +40,10 @@ The user expects BLiMP above 0.90 is attainable and wants the **best combination
 5. Dropout and width searched jointly (needing dropout implies spare capacity -> try a slightly smaller model).
 
 ## Size targets and protocol (user, 2026-10-12)
-- Final model sizes: **Strict ~13M, Strict-Small ~9M, MultiLingual ~22M** parameters (all far below the 50M cap; smaller is the objective).
+- Final model sizes (latest wording from the user): **Strict-Small ~4M, Strict ~13M, MultiLingual ~22M** parameters (an earlier message said 9M for Strict-Small; the later 4M supersedes it) (all far below the 50M cap; smaller is the objective).
 - **All architecture, activation, attention, norm, parameter and function decisions are made on Strict-Small** (faster dry runs). The Strict model is then built from those decisions at ~13M. Each screen is one full pass over the whole Strict-Small data; one full 1-epoch pass over the whole Strict data is run once to prove the finalist scales (~1.5 h at 13M).
-- Reference shapes at vocab 8192, length 256: 256 wide x 8 layers = 8.5M (Strict-Small centre); 320 x 8 = 12.5M (Strict). MultiLingual needs a larger vocabulary and gated data (blocked until the user logs in to Hugging Face).
-- The screening's width/depth factor levels straddle ~9M, not 45M.
+- Reference shapes at vocab 8192, length 256: 192 wide x 6 layers = 4.3M (Strict-Small centre); 320 x 8 = 12.5M (Strict). MultiLingual needs a larger vocabulary and gated data (blocked until the user logs in to Hugging Face).
+- The screening's width/depth factor levels straddle ~4M, not 45M.
 
 ## Part A: finish the rebuild (test-first, one commit each, commit only when green)
 1. `src/tinylm/tokens.py` (`Token`; tests in `tests/test_tokens.py`): flat memory-mapped token file `tokens.bin` + `meta.json` (dtype, length, vocab, sha256). uint16 when vocab <= 65536 (2 bytes/token: 29 MB Strict-Small, ~290 MB Strict) else uint32. `open_store(dir, verify)` returns read-only `numpy.memmap`; `rows(starts, width)` gathers a batch with no whole-stream copy; `from_tensor` for tests. Negatives: out-of-vocab/negative ids, empty, bad dims, truncated/corrupt/missing/malformed meta, out-of-range starts.
