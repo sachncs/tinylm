@@ -7,11 +7,26 @@ Rebuilt so far (tested, committed): scaffold on standard CPython 3.14.8 (GIL bui
 
 What the lost runs taught us (kept in the conversation; to be re-recorded in `docs/findings/`): BLiMP seed noise at ~7M params is 0.680 +/- 0.008; data-cleaning/vocab arms were within that noise; warmup-stable-decay lowered dev bits/char by 0.013 (~10x noise); EMA no effect; official GPT-2 baseline BLiMP 0.644 (Strict-Small) / 0.734 (Strict); best published Strict-Small 0.80; official evaluator prepends BOS (train with BOS separators); throughput 39k tok/s at 7M, ~8k tok/s at 45M.
 
-## Conventions added by the user (apply to everything from now on)
-- **This plan is written to `plan.md` in the repo root** (first action after approval; plan mode only allows editing this file).
-- **Single-word names** for new files, modules, scripts and configs (e.g. `plan.md`, `store.py`, `offline.py`, `screen.py`, `probes.py`, `export.py` instead of `hf_export.py`, `fetch.py`, `summarize.py`); no compound snake_case module names. Pytest's `test_<word>.py` files and standard-library-required names are the only exceptions (pytest discovers `test_*`).
-- **No leading underscore** on any name (no "semi-private" convention) - already enforced; keep it.
-- Existing rebuilt modules already follow this (seeding, model, ledger, packing, manifest, clean, tokenizer, prepare, objectives, optim, ema, store).
+## Engineering standards (user, final wording)
+**Naming**
+- Names are judged in **local context**: inside module `store` a class is `Store`, not `TokenStore`; `prepare.run`, not `prepare.prepare`. No stutter (`Train.train.training` is not allowed), no redundant module/type prefix or suffix on class or function names. Compound names such as `from_tensor` are fine when they say something the context does not.
+- Single words preferred for files, modules, scripts, configs (`plan.md`, `store.py`, `screen.py`); `test_<word>.py` follows pytest.
+- Exception classes: one per module named `Error` (`store.Error`), the standard-library pattern.
+- No leading underscore on anything; Google style guide; Python 3.14 only.
+
+**Data modelling and data engineering**
+- Every record that crosses a function or file boundary is a **frozen dataclass** (`slots=True`), validated in `__post_init__`; no ad-hoc dicts except at the JSON/TOML/torch serialisation edge (`dataclasses.asdict` there, reconstructed and validated on read).
+- Strict pipeline rules: schema-versioned metadata (`version` in every `meta.json`), SHA-256 on every stored artifact, atomic writes (temp file then rename), deterministic bytes for the same input and seed, idempotent steps (re-running changes nothing), lineage recorded (config, code revision, input checksums), and **fail loudly** on bad data (never skip, never silently repair; corrupt input raises a typed error and names the file and reason).
+- Offline by construction: after `fetch`, nothing touches the network (enforced by test).
+
+**Testing**
+- Test-first. Each public function has good-path and negative-path tests (bad types, out-of-range, empty, truncated, corrupt, missing, duplicate, wrong version), plus determinism, round-trip and property tests where they apply, and end-to-end tests on tiny fixtures. Commit only when green (`pytest && ruff && pyright`).
+
+**Reliability**
+- Atomic checkpoints with exact resume; ledger-enforced epoch cap; parameter-budget guard in every entry point; external `git bundle` backup after each commit (already installed); long jobs resumable; every run's `metrics.json` reproducible from its config and seed.
+
+**Rename pass (first task, before more code builds on the old names)**
+`model`: ModelConfig -> Config, count_parameters -> count, check_parameter_budget -> check, build_attention_mask -> visibility, is_global_layer -> is_global, make_norm -> norm, init_weights -> init. `ledger`: DataBudget -> Budget, BudgetExceededError -> Error. `packing`: epoch_offset -> offset, epoch_sequences -> sequences, build_stream -> join. `manifest`: Manifest -> Corpus, file_digest -> digest, verify_file -> verify, verify_directory -> check, IntegrityError -> Error. `clean`: normalize_typography -> typography, repair_case -> recase, strip_speaker_tag -> untag, clean_lines -> apply, drop_duplicate_long_lines -> dedupe. `prepare`: prepare -> run, read_sources -> read, split_blocks -> split, encode_stream -> encode. `objectives`: HybridSpec -> Hybrid, mask_tokens -> corrupt, hybrid_loss -> loss. `ema`: Ema -> Average. `store`: write_store -> write, open_store -> load, TokenStore -> Store, StoreError -> Error.
 
 ## Goal the user restated
 The user expects BLiMP above 0.90 is attainable and wants the **best combination** (attention, activation, norm, and the rest) found. Part C below is exactly that combination search; the result is reported against the 0.90 target either way (best published Strict-Small found: 0.80, so the claim will be tested, not assumed).
