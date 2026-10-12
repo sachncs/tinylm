@@ -1,8 +1,10 @@
 """Guarantees that a block of code runs without touching the network."""
 
+import contextlib
 import os
 import socket
 import types
+from unittest import mock
 
 FLAGS = ("HF_HUB_OFFLINE", "TRANSFORMERS_OFFLINE", "HF_DATASETS_OFFLINE")
 ON = "1"
@@ -22,23 +24,25 @@ class Offline:
 
     Sets the Hugging Face offline flags and replaces socket connection calls
     with a function that raises Error. Everything is restored on exit, also
-    when the body raises.
+    when the body raises. It patches process-global functions, so it is not
+    safe to use from several threads at once.
     """
 
     def __init__(self) -> None:
-        self.saved_env: dict[str, str | None] = {}
-        self.saved_connect: object = None
-        self.saved_create: object = None
+        self.saved: dict[str, str | None] = {}
+        self.stack = contextlib.ExitStack()
 
     def __enter__(self) -> Offline:
         """Switches the offline flags on and blocks sockets."""
         for flag in FLAGS:
-            self.saved_env[flag] = os.environ.get(flag)
+            self.saved[flag] = os.environ.get(flag)
             os.environ[flag] = ON
-        self.saved_connect = socket.socket.connect
-        self.saved_create = socket.create_connection
-        socket.socket.connect = refuse
-        socket.create_connection = refuse
+        self.stack.enter_context(
+            mock.patch.object(socket.socket, "connect", refuse)
+        )
+        self.stack.enter_context(
+            mock.patch.object(socket, "create_connection", refuse)
+        )
         return self
 
     def __exit__(
@@ -48,9 +52,8 @@ class Offline:
         trace: types.TracebackType | None,
     ) -> None:
         """Restores the environment and the socket functions."""
-        socket.socket.connect = self.saved_connect  # pyright: ignore[reportAttributeAccessIssue]
-        socket.create_connection = self.saved_create
-        for flag, old in self.saved_env.items():
+        self.stack.close()
+        for flag, old in self.saved.items():
             if old is None:
                 os.environ.pop(flag, None)
             else:

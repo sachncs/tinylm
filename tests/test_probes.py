@@ -1,5 +1,7 @@
 """Tests for recall and superposition probes on planted cases."""
 
+from typing import Any
+
 import pytest
 import torch
 
@@ -13,7 +15,7 @@ def corpus() -> list[str]:
 
 def tiny(tok_vocab: int, **kw: object) -> model.TinyLM:
     seeding.set_seed(0)
-    values: dict[str, object] = {
+    values: dict[str, Any] = {
         "vocab_size": tok_vocab,
         "max_seq_len": 64,
         "d_model": 32,
@@ -23,7 +25,7 @@ def tiny(tok_vocab: int, **kw: object) -> model.TinyLM:
         "global_every": 1,
     }
     values.update(kw)
-    return model.TinyLM(model.Config(**values)).eval()  # pyright: ignore[reportArgumentType]
+    return model.TinyLM(model.Config(**values)).eval()
 
 
 class TestMemory:
@@ -79,24 +81,26 @@ class TestAssociative:
 
     def test_a_planted_lookup_model_scores_one(self):
         # Oracle: logits peak at the token that followed the last key earlier.
-        class Oracle(torch.nn.Module):
-            config = model.Config(
-                vocab_size=300,
-                max_seq_len=64,
-                d_model=32,
-                n_layers=2,
-                n_heads=2,
-            )
+        class Oracle(model.TinyLM):
+            """Logits peak at the token that followed the last key earlier."""
 
-            def forward(self, tokens: torch.Tensor) -> torch.Tensor:
-                out = torch.zeros(*tokens.shape, 300)
+            def forward(
+                self,
+                tokens: torch.Tensor,
+                causal: bool = True,
+                local_window: int | None = None,
+            ) -> torch.Tensor:
+                out = torch.zeros(*tokens.shape, self.config.vocab_size)
                 key = tokens[:, -1]
                 for row in range(tokens.shape[0]):
                     first = int((tokens[row] == key[row]).nonzero()[0])
                     out[row, -1, tokens[row, first + 1]] = 10.0
                 return out
 
-        found = Associative(Oracle(), "cpu").accuracy((8, 30), 20, 0)  # pyright: ignore[reportArgumentType]
+        config = model.Config(
+            vocab_size=300, max_seq_len=64, d_model=32, n_layers=2, n_heads=2
+        )
+        found = Associative(Oracle(config), "cpu").accuracy((8, 30), 20, 0)
         assert all(a.accuracy == 1.0 for a in found)
 
     def test_rejects_bad_arguments(self):

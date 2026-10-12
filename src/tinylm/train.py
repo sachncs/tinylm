@@ -322,7 +322,7 @@ class Train:
         hybrid = objectives.Hybrid(self.masked, self.corrupt, MASK)
         return objectives.loss(net, batch, hybrid, generator)
 
-    def run(  # noqa: PLR0913
+    def run(  # noqa: PLR0913 (keyword-only hooks are part of the public API)
         self,
         net: model.TinyLM,
         tokens: Token,

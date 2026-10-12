@@ -12,7 +12,7 @@ FIXED (with commit), OPEN (planned), CHECKED (suspected, measured, no defect).
 | E2 | P1 | Checkpoint and metrics writes were not durable: no fsync of file or directory; metrics.json not atomic. | `grep fsync src` = 0. | FIXED (`atomic.durable`: temp file, fsync, rename, directory fsync) |
 | E3 | P1 | Results carried no provenance (git revision, dirty flag, library versions, device, config and data fingerprints). | `Metrics` had no such fields. | FIXED (`Provenance` in every `metrics.json`) |
 | E4 | P2 | Output is `print` only: no structured logs, no run log file. | 1 `print` in src, 0 `logging`. | OPEN |
-| E5 | P2 | 17 type/lint suppressions remain; each hides a check. | `grep -rn "pyright: ignore\|noqa"` = 17. | OPEN (justify or remove each) |
+| E5 | P2 | 17 type/lint suppressions hid checks. | `grep -rn "pyright: ignore\|noqa"` = 17. | FIXED (16 removed by fixing the typing; 1 left, `noqa: PLR0913` on `Train.run`, with its reason written next to it; `reportUnnecessaryTypeIgnoreComment` and `RUF100` now fail the gate on any stale suppression) |
 | E6 | P2 | The quality gate was a script, not enforced: a red commit was possible (happened twice). | history. | FIXED (versioned `pre-commit` hook runs the whole gate; tested to block a failing gate) |
 | E7 | P2 | No coverage threshold; no property-based tests (hypothesis). | pyproject. | PARTLY FIXED (gate fails below 97% coverage; measured 100% statement coverage, which shows paths were run, not that they are right; `hypothesis` installed, property tests OPEN) |
 | E8 | P3 | `Offline` patches process-global socket functions; not thread-safe. Documented limit. | `offline.py`. | OPEN (document) |

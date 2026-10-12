@@ -1,5 +1,7 @@
 """Tests for masked-token corruption and the hybrid objective."""
 
+from typing import Any
+
 import pytest
 import torch
 
@@ -72,13 +74,13 @@ def net() -> model.TinyLM:
 
 
 def spec(**kw: float) -> objectives.Hybrid:
-    values: dict[str, float | int] = {
+    values: dict[str, Any] = {
         "masked_fraction": 0.5,
         "mask_rate": 0.25,
         "mask_id": MASK_ID,
     }
     values.update(kw)
-    return objectives.Hybrid(**values)  # pyright: ignore[reportArgumentType]
+    return objectives.Hybrid(**values)
 
 
 def test_pure_causal_matches_plain_next_token_loss():

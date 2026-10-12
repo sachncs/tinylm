@@ -4,6 +4,9 @@ import collections.abc
 import dataclasses
 import pathlib
 import re
+import typing
+
+import huggingface_hub
 
 from tinylm import manifest
 from tinylm.atomic import Staging
@@ -50,9 +53,11 @@ def download(
     repo: str, revision: str, dest: pathlib.Path, patterns: tuple[str, ...]
 ) -> None:
     """Downloads a pinned snapshot with huggingface_hub."""
-    from huggingface_hub import snapshot_download  # noqa: PLC0415  # pyright: ignore[reportUnknownVariableType]
-
-    snapshot_download(
+    snapshot = typing.cast(
+        "collections.abc.Callable[..., object]",
+        huggingface_hub.snapshot_download,
+    )
+    snapshot(
         repo_id=repo,
         repo_type="dataset",
         revision=revision,

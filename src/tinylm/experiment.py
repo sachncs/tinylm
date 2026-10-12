@@ -27,7 +27,13 @@ class Error(Exception):
     """Raised when an experiment, override or queue file is invalid."""
 
 
-def build[T](kind: type[T], values: object, section: str) -> T:
+if typing.TYPE_CHECKING:
+    from _typeshed import DataclassInstance
+
+
+def build[T: DataclassInstance](
+    kind: type[T], values: object, section: str
+) -> T:
     """Builds a dataclass from a TOML table, rejecting unknown keys.
 
     Raises:
@@ -37,7 +43,7 @@ def build[T](kind: type[T], values: object, section: str) -> T:
     if not isinstance(values, dict):
         raise Error(f"missing [{section}] section")
     table = typing.cast("dict[str, object]", values)
-    names = {f.name for f in dataclasses.fields(kind)}  # pyright: ignore[reportArgumentType]
+    names = {f.name for f in dataclasses.fields(kind)}
     unknown = set(table) - names
     if unknown:
         raise Error(f"unknown keys in [{section}]: {sorted(unknown)}")
@@ -65,6 +71,23 @@ def coerce(field: dataclasses.Field[object], text: str) -> object:
     if kind is float:
         return float(text)
     return text
+
+
+def change[T: DataclassInstance](target: T, field: str, text: str) -> T:
+    """Returns target with one field replaced by the parsed text.
+
+    Raises:
+        Error: If the field does not exist or the text is not a valid value.
+    """
+    fields = {f.name: f for f in dataclasses.fields(target)}
+    if field not in fields:
+        raise Error(f"unknown field {field!r}")
+    try:
+        return dataclasses.replace(
+            target, **{field: coerce(fields[field], text)}
+        )
+    except (ValueError, TypeError) as error:
+        raise Error(f"{field}: {error}") from error
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -200,7 +223,7 @@ class Experiment:
                 has a wrong-typed value, fails validation or pushes the
                 model over the parameter budget.
         """
-        parts: dict[str, object] = {"model": self.model, "train": self.train}
+        net, train = self.model, self.train
         data = self.data
         for assignment in assignments:
             key, separator, text = assignment.partition("=")
@@ -210,22 +233,20 @@ class Experiment:
             section, dot, field = key.partition(".")
             if not separator or not dot or section not in SECTIONS:
                 raise Error(f"bad override {assignment!r}")
-            target = parts[section]
-            fields = {f.name: f for f in dataclasses.fields(target)}  # pyright: ignore[reportArgumentType]
-            if field not in fields:
-                raise Error(f"unknown field {key!r}")
             try:
-                value = coerce(fields[field], text)
-                parts[section] = dataclasses.replace(target, **{field: value})  # pyright: ignore[reportArgumentType]
-            except (ValueError, TypeError) as error:
+                if section == "model":
+                    net = change(net, field, text)
+                else:
+                    train = change(train, field, text)
+            except Error as error:
                 raise Error(f"{key}: {error}") from error
         updated = dataclasses.replace(
             self,
             name=name,
             data=data,
             out=self.out.parent / name,
-            model=typing.cast("model.Config", parts["model"]),
-            train=typing.cast("Train", parts["train"]),
+            model=net,
+            train=train,
         )
         updated.check(vocab)
         return updated

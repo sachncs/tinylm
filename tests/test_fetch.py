@@ -1,6 +1,7 @@
 """Tests for pinned, checksummed, idempotent dataset fetching."""
 
 import pathlib
+from typing import Any
 
 import pytest
 
@@ -10,15 +11,15 @@ from tinylm.fetch import Fetch, Pin
 REVISION = "a" * 40
 
 
-def pin(**overrides: object) -> Pin:
-    values: dict[str, object] = {
+def pin(**overrides: Any) -> Pin:
+    values: dict[str, Any] = {
         "name": "tiny",
         "repo": "org/tiny",
         "revision": REVISION,
         "patterns": ("*.txt",),
     }
     values.update(overrides)
-    return Pin(**values)  # pyright: ignore[reportArgumentType]
+    return Pin(**values)
 
 
 class Fake:

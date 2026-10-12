@@ -1,5 +1,7 @@
 """Tests for the decoder-only language model and its options."""
 
+from typing import Any
+
 import pytest
 import torch
 
@@ -8,8 +10,8 @@ from tinylm import model, seeding
 PARAM_BUDGET = 50_000_000
 
 
-def make_config(**overrides: object) -> model.Config:
-    values: dict[str, object] = {
+def make_config(**overrides: Any) -> model.Config:
+    values: dict[str, Any] = {
         "vocab_size": 64,
         "max_seq_len": 16,
         "d_model": 32,
@@ -19,10 +21,10 @@ def make_config(**overrides: object) -> model.Config:
         "global_every": 2,
     }
     values.update(overrides)
-    return model.Config(**values)  # pyright: ignore[reportArgumentType]
+    return model.Config(**values)
 
 
-def make_net(**overrides: object) -> model.TinyLM:
+def make_net(**overrides: Any) -> model.TinyLM:
     seeding.set_seed(0)
     return model.TinyLM(make_config(**overrides)).eval()
 
@@ -288,7 +290,7 @@ class TestActivationAndNorm:
 
 
 class TestCodebooks:
-    def cfg(self) -> dict[str, object]:
+    def cfg(self) -> dict[str, Any]:
         return {"codebook_sizes": (48, 24, 12)}
 
     def test_one_codebook_between_each_pair_of_stages(self):
@@ -351,10 +353,13 @@ class TestMaskCacheAndFastPath:
         original = model.Attention.forward
 
         def spy(
-            self: model.Attention, x: torch.Tensor, mask: object, causal: bool
-        ):
+            self: model.Attention,
+            x: torch.Tensor,
+            mask: torch.Tensor | None,
+            causal: bool,
+        ) -> torch.Tensor:
             calls.append(mask)
-            return original(self, x, mask, causal)  # pyright: ignore[reportArgumentType]
+            return original(self, x, mask, causal)
 
         monkeypatch.setattr(model.Attention, "forward", spy)
         net(batch())

@@ -1,6 +1,7 @@
 """Tests for layer-level diagnostics of attention, activations and norms."""
 
 import math
+from typing import Any
 
 import pytest
 import torch
@@ -9,8 +10,8 @@ from tinylm import model, seeding
 from tinylm.layers import Layers
 
 
-def net(**overrides: object) -> model.TinyLM:
-    values: dict[str, object] = {
+def net(**overrides: Any) -> model.TinyLM:
+    values: dict[str, Any] = {
         "vocab_size": 64,
         "max_seq_len": 32,
         "d_model": 32,
@@ -21,7 +22,7 @@ def net(**overrides: object) -> model.TinyLM:
     }
     values.update(overrides)
     seeding.set_seed(0)
-    return model.TinyLM(model.Config(**values)).eval()  # pyright: ignore[reportArgumentType]
+    return model.TinyLM(model.Config(**values)).eval()
 
 
 def tokens(length: int = 24) -> torch.Tensor:
@@ -56,7 +57,7 @@ class TestAttention:
     def test_uniform_attention_gives_the_geometric_expectation(self):
         model_ = net(n_layers=1)
         with torch.no_grad():
-            model_.blocks[0].attn.qkv.weight.zero_()  # pyright: ignore[reportAttributeAccessIssue, reportCallIssue]
+            Layers(model_).blocks()[0].attn.qkv.weight.zero_()
         length = 16
         (mass,) = Layers(model_).attention(tokens(length), (4,))
         expected = sum(max(0, i - 3) / (i + 1) for i in range(length)) / length
@@ -80,8 +81,8 @@ class TestFeedForward:
     def test_zero_weights_make_every_unit_dead(self):
         model_ = net(activation="relu")
         with torch.no_grad():
-            for block in model_.blocks:
-                block.ffn_in.weight.zero_()  # pyright: ignore[reportAttributeAccessIssue, reportCallIssue]
+            for block in Layers(model_).blocks():
+                block.ffn_in.weight.zero_()
         assert all(
             s.inactive == 1.0 and s.dead == 1.0
             for s in Layers(model_).ffn(tokens())

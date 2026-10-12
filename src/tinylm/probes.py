@@ -248,8 +248,10 @@ class Superposition:
         """
         if matrix.ndim != MATRIX_NDIM:
             raise ValueError("matrix must be 2-D")
-        values: torch.Tensor = torch.linalg.svdvals(matrix.float())  # pyright: ignore[reportUnknownVariableType]
-        power = typing.cast("torch.Tensor", values.pow(2))
+        values = typing.cast(
+            "torch.Tensor", torch.linalg.svdvals(matrix.float())
+        )
+        power = values.pow(2)
         return float(power.sum().pow(2) / power.pow(2).sum())
 
     @staticmethod

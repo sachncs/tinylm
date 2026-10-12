@@ -2,6 +2,7 @@
 
 import json
 import pathlib
+from typing import Any
 
 import pytest
 
@@ -32,8 +33,8 @@ def corpus(root: pathlib.Path) -> pathlib.Path:
     return root
 
 
-def prepare(**overrides: object) -> Prepare:
-    values: dict[str, object] = {
+def prepare(**overrides: Any) -> Prepare:
+    values: dict[str, Any] = {
         "vocab": 300,
         "kind": "bpe",
         "block": 20,
@@ -41,7 +42,7 @@ def prepare(**overrides: object) -> Prepare:
         "options": Options(),
     }
     values.update(overrides)
-    return Prepare(**values)  # pyright: ignore[reportArgumentType]
+    return Prepare(**values)
 
 
 def test_outputs_counts_bos_cleaning_and_lineage(tmp_path: pathlib.Path):

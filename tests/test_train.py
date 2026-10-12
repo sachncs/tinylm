@@ -1,6 +1,7 @@
 """Tests for the training loop, schedules, resume and evaluation."""
 
 import pathlib
+from typing import Any
 
 import pytest
 import torch
@@ -40,8 +41,8 @@ def periodic(n: int = 2000) -> Token:
     return Token.from_tensor((torch.arange(n) % 8) + 3, VOCAB)
 
 
-def train(**overrides: object) -> Train:
-    values: dict[str, object] = {
+def train(**overrides: Any) -> Train:
+    values: dict[str, Any] = {
         "seq_len": 16,
         "batch": 8,
         "lr": 3e-3,
@@ -55,7 +56,7 @@ def train(**overrides: object) -> Train:
         "every": 10,
     }
     values.update(overrides)
-    return Train(**values)  # pyright: ignore[reportArgumentType]
+    return Train(**values)
 
 
 def same(a: model.TinyLM, b: model.TinyLM) -> bool:
@@ -178,7 +179,7 @@ class TestRun:
         ],
     )
     def test_resume_equals_uninterrupted_run(
-        self, tmp_path: pathlib.Path, extra: dict[str, object]
+        self, tmp_path: pathlib.Path, extra: dict[str, Any]
     ):
         config = train(**extra)
         full, resumed = net(), net()
