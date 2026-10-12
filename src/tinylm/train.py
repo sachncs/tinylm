@@ -177,17 +177,20 @@ class Session:
         self.budget.consume(batch.numel())
         for group in self.optimizer.param_groups:
             group["lr"] = rate
-        loss = train.loss(self.net, batch, self.step, self.runner)
-        if not torch.isfinite(loss):
-            raise Error(f"non-finite loss at step {self.step}")
         self.optimizer.zero_grad()
-        loss.backward()
+        total = 0.0
+        for part in batch.chunk(train.accumulate):
+            loss = train.loss(self.net, part, self.step, self.runner)
+            if not torch.isfinite(loss):
+                raise Error(f"non-finite loss at step {self.step}")
+            (loss / train.accumulate).backward()
+            total += float(loss.detach())
         torch.nn.utils.clip_grad_norm_(self.net.parameters(), train.clip)
         self.optimizer.step()
         if self.average:
             self.average.update(self.net)
         self.step += 1
-        return float(loss.detach())
+        return total / train.accumulate
 
     def finish(self) -> None:
         """Makes the weight average (if any) the model's final weights."""
@@ -202,6 +205,9 @@ class Train:
     Attributes:
         seq_len: Input tokens per sequence.
         batch: Sequences per optimizer step.
+        accumulate: Micro-batches each step is split into (gradients are
+            summed, so the step equals the full batch); trades speed for
+            memory. Must divide batch; only the causal objective supports it.
         lr: Peak learning rate.
         floor: Final learning rate as a fraction of lr.
         warmup: Linear warmup length in steps.
@@ -243,12 +249,23 @@ class Train:
     shift: bool = True
     ema: float = 0.0
     compile: bool = False
+    accumulate: int = 1
+
+    def check_accumulate(self) -> None:
+        """Raises ValueError unless micro-batching is valid for this setup."""
+        if self.accumulate <= 0 or self.batch % self.accumulate:
+            raise ValueError("accumulate must be positive and divide batch")
+        if self.accumulate > 1 and self.masked > 0.0:
+            raise ValueError(
+                "accumulate > 1 is only supported for the causal objective"
+            )
 
     def __post_init__(self) -> None:
         """Validates every numeric and choice field."""
         for name in ("seq_len", "batch", "lr", "clip", "every"):
             if getattr(self, name) <= 0:
                 raise ValueError(f"{name} must be positive")
+        self.check_accumulate()
         if not 1 <= self.epochs <= ledger.HARD_EPOCH_CAP:
             raise ValueError(f"epochs must be in [1, {ledger.HARD_EPOCH_CAP}]")
         if not 0.0 <= self.floor <= 1.0:

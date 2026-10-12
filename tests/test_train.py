@@ -371,3 +371,47 @@ class TestCompile:
         train(compile=False).run(net(), noise(), tmp_path, stop=3)
         with pytest.raises(Error, match="changed"):
             train(compile=True).run(net(), noise(), tmp_path, resume=True)
+
+
+class TestAccumulate:
+    def test_micro_batches_reproduce_the_full_batch_step(
+        self, tmp_path: pathlib.Path
+    ):
+        whole, split = net(), net()
+        a = train(epochs=1).run(whole, noise(), tmp_path / "a")
+        b = train(epochs=1, accumulate=4).run(split, noise(), tmp_path / "b")
+        assert len(a.losses) == len(b.losses) > 5
+        assert (
+            max(abs(x - y) for x, y in zip(a.losses, b.losses, strict=True))
+            < 1e-4
+        )
+        for p, q in zip(whole.parameters(), split.parameters(), strict=True):
+            torch.testing.assert_close(p, q, rtol=1e-3, atol=1e-5)
+        assert a.processed == b.processed
+
+    def test_resume_works_with_accumulation(self, tmp_path: pathlib.Path):
+        config = train(epochs=1, accumulate=2)
+        config.run(net(), noise(), tmp_path, stop=3)
+        resumed, reference = net(), net()
+        config.run(resumed, noise(), tmp_path, resume=True)
+        config.run(reference, noise(), tmp_path / "ref")
+        for p, q in zip(
+            resumed.parameters(), reference.parameters(), strict=True
+        ):
+            torch.testing.assert_close(p, q)
+
+    def test_accumulate_changes_the_fingerprint(self, tmp_path: pathlib.Path):
+        train().run(net(), noise(), tmp_path, stop=3)
+        with pytest.raises(Error, match="changed"):
+            train(accumulate=2).run(net(), noise(), tmp_path, resume=True)
+
+    @pytest.mark.parametrize("bad", [0, -1, 3, 16])
+    def test_a_count_that_does_not_divide_the_batch_is_rejected(self, bad: int):
+        with pytest.raises(ValueError, match="accumulate"):
+            train(accumulate=bad)
+
+    def test_hybrid_objective_cannot_be_split_because_it_is_not_equivalent(
+        self,
+    ):
+        with pytest.raises(ValueError, match="accumulate"):
+            train(accumulate=2, masked=0.5)

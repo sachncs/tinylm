@@ -5,4 +5,4 @@ base = "configs/small.toml"
 
 [[run]]
 name = "wide"
-set = ["train.epochs=4", "train.lr=0.01", "train.batch=256", "train.warmup=50", "train.compile=true"]
+set = ["train.epochs=4", "train.lr=0.01", "train.batch=256", "train.accumulate=8", "train.warmup=50", "train.compile=true"]
