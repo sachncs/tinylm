@@ -1,0 +1,8 @@
+# One experiment on the frozen Strict-Small candidate: lr 1e-2, batch 256
+# (65k tokens per step, 8x the base). Warmup is cut to 50 steps because the
+# 4-epoch run has only ~800 steps at this batch size. Compare with d00s*.
+base = "configs/small.toml"
+
+[[run]]
+name = "wide"
+set = ["train.epochs=4", "train.lr=0.01", "train.batch=256", "train.warmup=50", "train.compile=true"]
