@@ -322,3 +322,52 @@ class TestHalt:
         train().run(a, noise(), tmp_path / "a")
         train().run(b, noise(), tmp_path / "b", halt=lambda: False)
         assert same(a, b)
+
+
+class TestCompile:
+    def available(self) -> str:
+        return "mps" if torch.backends.mps.is_available() else "cpu"
+
+    def test_compiled_training_matches_eager_training(
+        self, tmp_path: pathlib.Path
+    ):
+        device = self.available()
+        eager, fast = net(), net()
+        a = train(device=device, epochs=1).run(eager, noise(), tmp_path / "a")
+        b = train(device=device, epochs=1, compile=True).run(
+            fast, noise(), tmp_path / "b"
+        )
+        assert len(a.losses) == len(b.losses) > 10
+        assert (
+            max(abs(x - y) for x, y in zip(a.losses, b.losses, strict=True))
+            < 1e-3
+        )
+        # Adam normalises tiny gradients, so float rounding differences between
+        # fused and eager kernels show up as ~1e-3 in weights while the losses
+        # still agree; the tolerance is one learning-rate step, not exactness.
+        for p, q in zip(eager.parameters(), fast.parameters(), strict=True):
+            torch.testing.assert_close(p.cpu(), q.cpu(), rtol=0, atol=5e-3)
+
+    def test_compiled_run_checkpoints_and_resumes_like_a_plain_one(
+        self, tmp_path: pathlib.Path
+    ):
+        device = self.available()
+        config = train(device=device, compile=True)
+        config.run(net(), noise(), tmp_path, stop=5)
+        saved = torch.load(tmp_path / "checkpoint.pt")["model"]
+        assert not any(key.startswith("_orig_mod") for key in saved)
+        resumed = net()
+        config.run(resumed, noise(), tmp_path, resume=True)
+        reference = net()
+        config.run(reference, noise(), tmp_path / "ref")
+        for p, q in zip(
+            resumed.parameters(), reference.parameters(), strict=True
+        ):
+            torch.testing.assert_close(p.cpu(), q.cpu(), rtol=0, atol=5e-3)
+
+    def test_compile_changes_the_fingerprint_so_runs_are_not_mixed(
+        self, tmp_path: pathlib.Path
+    ):
+        train(compile=False).run(net(), noise(), tmp_path, stop=3)
+        with pytest.raises(Error, match="changed"):
+            train(compile=True).run(net(), noise(), tmp_path, resume=True)

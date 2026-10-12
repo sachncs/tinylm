@@ -306,7 +306,14 @@ class TinyLM(nn.Module):
         positions = torch.arange(length, device=tokens.device)
         x = self.emb_drop(self.tok_emb(tokens) + self.pos_emb(positions))
         window = local_window or self.config.window
-        local = local_mask(length, window, causal, str(x.device))
+        if torch.compiler.is_compiling():
+            # Inside a compiled graph the mask is built from traced ops (the
+            # cache wrapper cannot be traced); eagerly the cached one is used.
+            local = visibility(length, window, causal, is_global=False).to(
+                x.device
+            )
+        else:
+            local = local_mask(length, window, causal, str(x.device))
         for index, block in enumerate(self.blocks):
             use_global = is_global(index, self.config.global_every)
             fused = use_global and local_window is None
