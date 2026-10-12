@@ -14,7 +14,7 @@ FIXED (with commit), OPEN (planned), CHECKED (suspected, measured, no defect).
 | E4 | P2 | Output was `print` only: no structured logs, no run log file. | 1 `print` in src, 0 `logging`. | FIXED (`logs.setup`: one format, console plus optional file; library code uses `logging`) |
 | E5 | P2 | 17 type/lint suppressions hid checks. | `grep -rn "pyright: ignore\|noqa"` = 17. | FIXED (16 removed by fixing the typing; 1 left, `noqa: PLR0913` on `Train.run`, with its reason written next to it; `reportUnnecessaryTypeIgnoreComment` and `RUF100` now fail the gate on any stale suppression) |
 | E6 | P2 | The quality gate was a script, not enforced: a red commit was possible (happened twice). | history. | FIXED (versioned `pre-commit` hook runs the whole gate; tested to block a failing gate) |
-| E7 | P2 | No coverage threshold; no property-based tests (hypothesis). | pyproject. | PARTLY FIXED (gate fails below 97% coverage; measured 100% statement coverage, which shows paths were run, not that they are right; `hypothesis` installed, property tests OPEN) |
+| E7 | P2 | No coverage threshold; no property-based tests (hypothesis). | pyproject. | FIXED (gate fails below 97% coverage; measured 99.9% statement coverage, which shows paths were run, not that they are right; seven property-based tests with `hypothesis`) |
 | E8 | P3 | `Offline` patches process-global socket functions; not thread-safe. Documented limit. | `offline.py`. | OPEN (document) |
 | E10 | P1 | **Found while hardening, introduced by me:** with weight averaging on, `bits_per_char` was measured on the live weights while the benchmark score used the averaged weights, so one result mixed two models; and the final checkpoint held the live weights, not the returned model. Any run with `ema > 0` is affected, including the EMA arms of the screen started before the fix. | `Experiment.execute` / `Train.run` order of `finish()` and the last checkpoint. | FIXED (final loss is evaluated on the returned model; the final checkpoint stores it; `Experiment.restore` and `experiment.json` added; invariants tested). The screen running at the time is a preview only for the EMA factor on bits/char; the screen is re-run on the corrected code. |
 | E9 | P3 | Long runs in one process leak memory and one crash kills the batch. | seen risk. | FIXED (`jobs.run_all`: one process per run, `caffeinate`, first failure stops the batch with its exit status; used by `screen.py` and `batch.py`) |
@@ -39,7 +39,7 @@ FIXED (with commit), OPEN (planned), CHECKED (suspected, measured, no defect).
 ## Data processing and handling
 | # | Sev | Finding | Evidence | Status |
 |---|-----|---------|----------|--------|
-| D1 | P1 | (FIXED: `Prepare.unique` drops dev lines of >= 6 words that occur in train; count in `stats.json`) **Dev set leaked training text**: 4.5% of dev lines with >= 6 words (167/3,674) are exact copies of training lines (33% of all dev lines, mostly short utterances). Dev loss and bits/char are optimistic. | measured on Strict-Small. | OPEN |
+| D1 | P1 | **Dev set leaked training text**: 4.5% of dev lines with >= 6 words (167/3,674) were exact copies of training lines (33% of all dev lines, mostly short utterances). Dev loss and bits/char were optimistic. | measured on Strict-Small. | FIXED (`Prepare.unique` drops those lines; `stats.json` records the count, 167, which matches the hand measurement) |
 | D2 | P2 | Duplicate removal was per source only; no near-duplicate removal. | `prepare.py`. | PARTLY FIXED (exact long-line dedupe now shared across sources; near-duplicates OPEN) |
 | D3 | P2 | No Unicode normalisation (NFC) before tokenising. | `clean.py`. | FIXED |
 | D4 | P2 | Output lineage was partial. | `prepare.py`. | FIXED (settings and tokenizer hash in `stats.json`, version 2; code revision is in each run's provenance) |
@@ -50,11 +50,11 @@ FIXED (with commit), OPEN (planned), CHECKED (suspected, measured, no defect).
 | # | Sev | Finding | Evidence | Status |
 |---|-----|---------|----------|--------|
 | V1 | P1 | Reported scores had no uncertainty: no confidence intervals, no paired comparison between models. | `Bench.Report`. | FIXED (`Bootstrap`: 95% intervals on every benchmark mean; per-item outcomes saved; `scripts/compare.py` for paired differences) |
-| V2 | P1 | Screening uses the fast BLiMP subset; headline numbers must come from the full official suites (BLiMP, supplement, EWoK, entity tracking, COMPS, reading, GLUE), not the subset. | `configs/screen.toml`. | OPEN (rule + official-pipeline script) |
+| V2 | P1 | (script and rule exist: `scripts/official.py`, `docs/standards.md`; running it on finalists is pending) Screening uses the fast BLiMP subset; headline numbers must come from the full official suites (BLiMP, supplement, EWoK, entity tracking, COMPS, reading, GLUE), not the subset. | `configs/screen.toml`. | OPEN (rule + official-pipeline script) |
 | V3 | P1 | The 24-run screen estimates main effects only; interactions are aliased and two-level designs miss mid-range optima. | design theory; reviewer note. | PARTLY FIXED (`Design.foldover` and `Factorial`: full 2^k design with all two-factor interactions judged by Lenth's method, tested on planted interactions; the follow-up runs on the screen's top factors are OPEN until the screen finishes; mid-range optima need line searches, OPEN) |
 | V4 | P2 | Single seed per screen run; winners need replicates before any claim. | design. | OPEN |
 | V5 | P2 | The in-house scorer was validated against the official pipeline once, on a model that no longer exists. | `docs/baselines.md` (lost). | OPEN |
-| V6 | P2 | Thresholds (tau) are fixed in advance (good), but no calibration measure is reported next to precision. | `Bench`. | OPEN |
+| V6 | P2 | Thresholds (tau) are fixed in advance (good), but no calibration measure was reported next to precision. | `Bench`. | FIXED (`Calibration`: reliability table and expected calibration error of sigmoid(|margin|) against correctness; validated on synthetic calibrated and over-confident data) |
 
 ## Rules adopted
 Warnings are errors; nothing is silenced without a written reason; failures stop

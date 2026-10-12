@@ -2,6 +2,7 @@
 
 import dataclasses
 import json
+import math
 import pathlib
 
 import torch
@@ -98,6 +99,77 @@ class Confidence:
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
+class Bin:
+    """One confidence bin of a reliability table.
+
+    Attributes:
+        low: Lower confidence bound (inclusive), at least 0.5.
+        high: Upper confidence bound (exclusive except for the last bin).
+        count: Items whose confidence falls in the bin.
+        confidence: Mean confidence of those items.
+        accuracy: Share of those items answered correctly.
+    """
+
+    low: float
+    high: float
+    count: int
+    confidence: float
+    accuracy: float
+
+
+@dataclasses.dataclass(frozen=True, slots=True)
+class Calibration:
+    """How well the model's confidence predicts being right.
+
+    Treats sigmoid(|margin|) as the probability that the preferred sentence
+    is the grammatical one (a Bradley-Terry reading of the log-probability
+    difference) and compares it with how often that preference is correct.
+
+    Attributes:
+        ece: Expected calibration error: count-weighted mean |accuracy -
+            confidence| over bins (0 is perfect, 0.5 is the worst).
+        bins: The reliability table.
+    """
+
+    ece: float
+    bins: tuple[Bin, ...]
+
+    @classmethod
+    def of(cls, margins: list[float], bins: int = 10) -> Calibration:
+        """Builds the reliability table of a list of margins.
+
+        Raises:
+            ValueError: If margins is empty or non-finite, or bins < 1.
+        """
+        if not margins:
+            raise ValueError("margins must not be empty")
+        if bins < 1:
+            raise ValueError("bins must be at least 1")
+        if not all(math.isfinite(m) for m in margins):
+            raise ValueError("margins must be finite")
+        confidence = [1.0 / (1.0 + math.exp(-abs(m))) for m in margins]
+        right = [m > 0 for m in margins]
+        out: list[Bin] = []
+        ece = 0.0
+        for index in range(bins):
+            low = 0.5 + 0.5 * index / bins
+            high = 0.5 + 0.5 * (index + 1) / bins
+            members = [
+                i
+                for i, c in enumerate(confidence)
+                if low <= c < high or (index == bins - 1 and c == high)
+            ]
+            if members:
+                mean_c = sum(confidence[i] for i in members) / len(members)
+                acc = sum(right[i] for i in members) / len(members)
+                ece += len(members) / len(margins) * abs(acc - mean_c)
+            else:
+                mean_c = acc = 0.0
+            out.append(Bin(low, high, len(members), mean_c, acc))
+        return cls(ece, tuple(out))
+
+
+@dataclasses.dataclass(frozen=True, slots=True)
 class Report:
     """Accuracy per paradigm, their mean with a 95% interval, and confidence.
 
@@ -110,6 +182,7 @@ class Report:
     confidence: dict[float, Confidence]
     interval: Interval
     outcomes: dict[str, list[bool]]
+    calibration: Calibration
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -207,4 +280,5 @@ class Bench:
             {tau: Confidence.of(pooled, tau) for tau in taus},
             Bootstrap().mean(outcomes),
             outcomes,
+            Calibration.of(pooled),
         )

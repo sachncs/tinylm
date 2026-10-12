@@ -5,9 +5,10 @@ import math
 import pathlib
 
 import pytest
+import torch
 
 from tinylm import model, seeding, tokenizer
-from tinylm.bench import Bench, Confidence, Error, Pair
+from tinylm.bench import Bench, Calibration, Confidence, Error, Pair
 
 LINES = ["the cat sat on the mat .", "the dogs run fast ."] * 40
 
@@ -162,6 +163,7 @@ class TestDirectory:
         )
         assert report.confidence[0.5].total == 4
         assert report.interval.level == 0.95
+        assert 0.0 <= report.calibration.ece <= 0.5
         assert report.interval.low <= report.mean <= report.interval.high
         assert {k: len(v) for k, v in report.outcomes.items()} == {
             "p1": 2,
@@ -176,3 +178,44 @@ class TestDirectory:
             bench().evaluate(tmp_path / "x")
         with pytest.raises(Error, match="no .jsonl"):
             bench().evaluate(tmp_path)
+
+
+class TestCalibration:
+    def test_perfectly_calibrated_synthetic_margins_have_a_small_error(self):
+        generator = torch.Generator()
+        generator.manual_seed(0)
+        margins = torch.randn(20000, generator=generator) * 2.0
+        correct = torch.rand(20000, generator=generator) < torch.sigmoid(
+            margins.abs()
+        )
+        # The preferred sentence is right with probability sigmoid(|margin|).
+        signed = torch.where(correct, margins.abs(), -margins.abs())
+        found = Calibration.of([float(m) for m in signed])
+        assert found.ece < 0.02
+        assert (
+            len(found.bins) == 10 and sum(b.count for b in found.bins) == 20000
+        )
+
+    def test_confidently_wrong_margins_have_a_large_error(self):
+        generator = torch.Generator()
+        generator.manual_seed(1)
+        magnitude = 3.0 + torch.rand(5000, generator=generator)
+        coin = torch.rand(5000, generator=generator) < 0.5
+        margins = torch.where(coin, magnitude, -magnitude)
+        found = Calibration.of([float(m) for m in margins])
+        assert found.ece > 0.4
+
+    def test_bins_hold_confidence_and_accuracy_in_range(self):
+        found = Calibration.of([0.1, -0.2, 2.0, -3.0, 5.0], bins=5)
+        for b in found.bins:
+            assert 0.5 <= b.low <= b.high <= 1.0
+            if b.count:
+                assert 0.5 <= b.confidence <= 1.0 and 0.0 <= b.accuracy <= 1.0
+
+    def test_validation(self):
+        with pytest.raises(ValueError, match="margins"):
+            Calibration.of([])
+        with pytest.raises(ValueError, match="bins"):
+            Calibration.of([1.0], bins=0)
+        with pytest.raises(ValueError, match="finite"):
+            Calibration.of([float("nan")])
