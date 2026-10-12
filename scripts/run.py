@@ -3,6 +3,7 @@
 import argparse
 import pathlib
 
+from tinylm import logs
 from tinylm.experiment import Experiment
 
 
@@ -13,6 +14,7 @@ def main() -> None:
     parser.add_argument("--name")
     parser.add_argument("--set", action="append", default=[], dest="sets")
     args = parser.parse_args()
+    logs.setup()
     experiment = Experiment.load(args.config)
     if args.sets or args.name:
         experiment = experiment.override(

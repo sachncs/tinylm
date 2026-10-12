@@ -11,12 +11,12 @@ FIXED (with commit), OPEN (planned), CHECKED (suspected, measured, no defect).
 | E1 | P1 | Resume never checked that config or data match the checkpoint; a changed run silently continued from foreign state. | `Checkpoint` had no version, config hash or data hash. | FIXED (fingerprint of config, model and data; versioned checkpoint; mismatch raises) |
 | E2 | P1 | Checkpoint and metrics writes were not durable: no fsync of file or directory; metrics.json not atomic. | `grep fsync src` = 0. | FIXED (`atomic.durable`: temp file, fsync, rename, directory fsync) |
 | E3 | P1 | Results carried no provenance (git revision, dirty flag, library versions, device, config and data fingerprints). | `Metrics` had no such fields. | FIXED (`Provenance` in every `metrics.json`) |
-| E4 | P2 | Output is `print` only: no structured logs, no run log file. | 1 `print` in src, 0 `logging`. | OPEN |
+| E4 | P2 | Output was `print` only: no structured logs, no run log file. | 1 `print` in src, 0 `logging`. | FIXED (`logs.setup`: one format, console plus optional file; library code uses `logging`) |
 | E5 | P2 | 17 type/lint suppressions hid checks. | `grep -rn "pyright: ignore\|noqa"` = 17. | FIXED (16 removed by fixing the typing; 1 left, `noqa: PLR0913` on `Train.run`, with its reason written next to it; `reportUnnecessaryTypeIgnoreComment` and `RUF100` now fail the gate on any stale suppression) |
 | E6 | P2 | The quality gate was a script, not enforced: a red commit was possible (happened twice). | history. | FIXED (versioned `pre-commit` hook runs the whole gate; tested to block a failing gate) |
 | E7 | P2 | No coverage threshold; no property-based tests (hypothesis). | pyproject. | PARTLY FIXED (gate fails below 97% coverage; measured 100% statement coverage, which shows paths were run, not that they are right; `hypothesis` installed, property tests OPEN) |
 | E8 | P3 | `Offline` patches process-global socket functions; not thread-safe. Documented limit. | `offline.py`. | OPEN (document) |
-| E9 | P3 | Long runs in one process (queue script) leak memory and one crash kills the batch. | seen risk. | FIXED for `screen` (subprocess per run); `batch.py` OPEN |
+| E9 | P3 | Long runs in one process leak memory and one crash kills the batch. | seen risk. | FIXED (`jobs.run_all`: one process per run, `caffeinate`, first failure stops the batch with its exit status; used by `screen.py` and `batch.py`) |
 
 ## Optimisation
 | # | Sev | Finding | Evidence | Status |
@@ -32,7 +32,7 @@ FIXED (with commit), OPEN (planned), CHECKED (suspected, measured, no defect).
 |---|-----|---------|----------|--------|
 | H1 | P1 | (fixed in `device.py`: availability and fallback checks, loud errors) `device = "mps"` was trusted blindly: no availability check, and MPS CPU-fallback env var is not verified off (silent CPU fallback hides slow or wrong paths). | configs, `train.py`. | FIXED (`Train.run` resolves the device first and raises with the reason) |
 | H2 | P2 | Throughput was wall-clock including evaluation and callbacks, not synchronised with the device. | `experiment.py`. | FIXED (`Result.seconds`: device-synchronised, callbacks excluded) |
-| H3 | P2 | No device-memory release between runs in one process. | seen risk. | FIXED for `screen` (processes); OPEN elsewhere |
+| H3 | P2 | No device-memory release between runs in one process. | seen risk. | FIXED (one process per run; `Device.release` exists for in-process use) |
 | H4 | P3 | `torch.compile`/graph capture not assessed on MPS. | -- | OPEN (measure, report) |
 
 ## Data processing and handling

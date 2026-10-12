@@ -3,6 +3,7 @@
 import dataclasses
 import hashlib
 import json
+import logging
 import math
 import pathlib
 import tomllib
@@ -17,6 +18,7 @@ from tinylm.provenance import Provenance
 from tinylm.tokens import Token
 from tinylm.train import Train
 
+log = logging.getLogger(__name__)
 TOP_LEVEL = ("name", "data", "out", "evals", "taus", "model", "train")
 SECTIONS = ("model", "train")
 VOCAB = 8192
@@ -278,7 +280,7 @@ class Experiment:
 
         def after(epoch: int) -> None:
             losses.append(self.train.evaluate(net, dev))
-            print(f"epoch {epoch} dev_loss {losses[-1]:.4f}", flush=True)
+            log.info("epoch %d dev_loss %.4f", epoch, losses[-1])
             net.train()
 
         self.out.mkdir(parents=True, exist_ok=True)

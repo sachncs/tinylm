@@ -3,9 +3,8 @@
 import argparse
 import json
 import pathlib
-import subprocess
-import sys
 
+from tinylm import jobs, logs
 from tinylm.experiment import Experiment
 from tinylm.screen import Design, Factor, Screen
 
@@ -53,26 +52,13 @@ def screen() -> Screen:
 
 
 def run() -> None:
-    """Runs every screen run without metrics.json, each in its own process.
-
-    Separate processes isolate memory use and crashes; a failing run stops
-    the whole batch with its exit status (check=True), never silently.
-    """
+    """Runs every screen run without metrics.json, each in its own process."""
     Experiment.load(BASE)
-    for item in screen().runs():
-        if (RUNS / item.name / "metrics.json").exists():
-            continue
-        print(f"== {item.name} {len(item.sets)} overrides", flush=True)
-        command = [
-            sys.executable,
-            "scripts/run.py",
-            str(BASE),
-            "--name",
-            item.name,
-        ]
-        for override in item.sets:
-            command += ["--set", override]
-        subprocess.run(command, check=True)
+    jobs.run_all(
+        jobs.command(BASE, item.name, item.sets)
+        for item in screen().runs()
+        if not (RUNS / item.name / "metrics.json").exists()
+    )
 
 
 def analyse() -> None:
@@ -104,6 +90,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("command", choices=("plan", "run", "analyse"))
     args = parser.parse_args()
+    logs.setup()
     if args.command == "plan":
         for item in screen().runs():
             print(item.name, " ".join(item.sets))
