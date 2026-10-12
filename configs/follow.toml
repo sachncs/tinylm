@@ -1,0 +1,30 @@
+# Base for the follow-up factorial. Fixed at the simplest setting the screen
+# could not distinguish from alternatives (full attention, GELU, tied head, no
+# dropout, width 192 x 6 layers); the five factors in scripts/follow.py vary.
+name = "follow"
+data = "runs/small8k"
+out = "runs/follow/base"
+evals = ["data/evals/evaluation_data/fast_eval/blimp_fast"]
+taus = [1.0]
+
+[model]
+max_seq_len = 256
+d_model = 192
+n_layers = 6
+n_heads = 4
+window = 128
+global_every = 1
+
+[train]
+seq_len = 256
+batch = 32
+lr = 0.002
+floor = 0.1
+warmup = 200
+decay = 0.1
+clip = 1.0
+epochs = 1
+seed = 0
+device = "mps"
+every = 1000
+schedule = "wsd"
