@@ -1,0 +1,6 @@
+#!/bin/sh
+# Keep a restorable copy of the whole repo outside the project folder.
+BACKUP_DIR="$HOME/Documents/Codex/backups"
+mkdir -p "$BACKUP_DIR"
+git bundle create "$BACKUP_DIR/tinylm.bundle.tmp" --all >/dev/null 2>&1 \
+  && mv "$BACKUP_DIR/tinylm.bundle.tmp" "$BACKUP_DIR/tinylm.bundle"

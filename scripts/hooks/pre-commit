@@ -1,0 +1,6 @@
+#!/bin/sh
+# Blocks any commit that does not pass the full quality gate.
+set -e
+GATE="${GATE:-./scripts/gate.sh}"
+echo "pre-commit: running $GATE"
+$GATE || { echo "pre-commit: gate FAILED, commit blocked" >&2; exit 1; }
