@@ -24,7 +24,7 @@ FIXED (with commit), OPEN (planned), CHECKED (suspected, measured, no defect).
 |---|-----|---------|----------|--------|
 | O1 | P3 | Training syncs with the device every step (`isfinite(loss)`, `float(loss)`). Hypothesis: this serialises the device. **Measured: 162.8 ms vs 162.0 ms per step with the sync removed (0.5%)**, so it is not a bottleneck; per-step checking is kept because it reports the exact failing step. | `train.py`, MPS benchmark. | CHECKED (no change) |
 | O2 | P3 | Attention masks were rebuilt on CPU and copied to the device on every forward; pure-causal full attention did not use `is_causal`. Hypothesis: a speed-up. **Measured: 154.0 ms vs 155.1 ms per step (under 1%)**. Masks are now cached and global layers take the fused path (tested equal to the explicit-mask path), kept for cleanliness, not speed. | `model.py`, MPS benchmark. | FIXED (no speed gain) |
-| O3 | P2 | `Prepare` holds every cleaned line of the corpus in Python lists (multiple copies); Strict needs GBs of RAM. | `prepare.py`, `tokenizer.train` copies lines. | OPEN |
+| O3 | P2 | `Prepare` held every cleaned line of the corpus in Python lists (multiple copies). **Measured: 7.36 GB peak resident for Strict.** | `prepare.py`, `tokenizer.train` copied lines. | FIXED (streams through temporary files; only 64-bit fingerprints of long training lines stay in memory). **Measured: 2.74 GB peak, 127 s vs 138 s, and the train and dev streams are byte-identical to the old output** (golden test on the fixture, fingerprint comparison on full Strict) |
 | O4 | P3 | Scoring tokenises sentences one by one. | `bench.py`. | OPEN |
 | O5 | P3 | bf16/fp16 gave no speed-up on MPS (measured 7.4k/8.1k vs 7.9k tokens/s): documented, no change. | earlier measurement. | CHECKED |
 

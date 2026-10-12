@@ -181,3 +181,39 @@ def test_cross_source_duplicates_are_removed_once(tmp_path: pathlib.Path):
         line == long_line for lines in sources.values() for line in lines
     )
     assert total == 1
+
+
+GOLDEN = {
+    "train_fingerprint": (
+        "3d25ad5d167fb72b888afd039fcab8a7088ae77266c94d96756485a67cad61b2"
+    ),
+    "dev_fingerprint": (
+        "e15970ef97a075fb0b84004badfe5569d81b4744e62c07abb9a931d1856f6927"
+    ),
+    "tokenizer_sha256": (
+        "03ced2955364dd6b586fcd3e5c0318c8fa206f247084fb585ea1acb8b97a66a3"
+    ),
+    "counts": (1440, 80, 15512, 600, 1200, 80),
+}
+
+
+def test_output_matches_the_recorded_golden_values(tmp_path: pathlib.Path):
+    """Pins the exact output so refactors of the data path cannot change it."""
+    stats = prepare().run(corpus(tmp_path / "c"), tmp_path / "out")
+    assert (
+        stats.train_lines,
+        stats.dev_lines,
+        stats.train_tokens,
+        stats.dev_tokens,
+        stats.dev_chars,
+        stats.dev_dropped,
+    ) == GOLDEN["counts"]
+    assert (
+        Token.load(tmp_path / "out" / "train").fingerprint()
+        == GOLDEN["train_fingerprint"]
+    )
+    assert (
+        Token.load(tmp_path / "out" / "dev").fingerprint()
+        == GOLDEN["dev_fingerprint"]
+    )
+    assert stats.tokenizer_sha256 == GOLDEN["tokenizer_sha256"]

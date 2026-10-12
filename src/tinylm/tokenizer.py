@@ -1,6 +1,7 @@
 """Deterministic tokenizer training (byte-level BPE or Unigram)."""
 
 import collections.abc
+import itertools
 import json
 import pathlib
 
@@ -37,9 +38,11 @@ def train(
         raise ValueError(f"kind must be one of {KINDS}, got {kind!r}")
     if vocab_size < MIN_VOCAB[kind]:
         raise ValueError(f"vocab_size must be at least {MIN_VOCAB[kind]}")
-    lines = [line for line in corpus if line.strip()]
-    if not lines:
+    stream = (line for line in corpus if line.strip())
+    first = next(stream, None)
+    if first is None:
         raise ValueError("corpus has no non-blank lines")
+    lines = itertools.chain([first], stream)
     special = list(SPECIAL_TOKENS)
     if kind == "bpe":
         tok = Tokenizer(models.BPE(unk_token="<unk>"))
