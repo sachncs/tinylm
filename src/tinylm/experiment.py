@@ -11,6 +11,7 @@ import typing
 from tinylm import model, seeding, tokenizer
 from tinylm.atomic import durable
 from tinylm.bench import Bench
+from tinylm.bootstrap import Interval
 from tinylm.offline import Offline
 from tinylm.provenance import Provenance
 from tinylm.tokens import Token
@@ -87,6 +88,7 @@ class Metrics:
         tokens_per_second: Training throughput.
         train_tokens: Tokens in the training stream.
         benchmarks: Mean paradigm accuracy per evaluation folder.
+        intervals: 95% bootstrap interval of each benchmark mean.
         bits_per_char: Final dev bits per character.
         confidence: Confident-correct summaries per folder and threshold.
         seconds: Device-synchronised training time (evaluation excluded).
@@ -99,6 +101,7 @@ class Metrics:
     tokens_per_second: float
     train_tokens: int
     benchmarks: dict[str, float]
+    intervals: dict[str, Interval]
     bits_per_char: float
     confidence: tuple[Summary, ...]
     seconds: float
@@ -261,10 +264,17 @@ class Experiment:
         result = self.train.run(net, train, self.out, after=after)
         bench = Bench(net, tok, self.train.device)
         benchmarks: dict[str, float] = {}
+        intervals: dict[str, Interval] = {}
         summaries: list[Summary] = []
         for folder in self.evals:
             report = bench.evaluate(folder, self.taus)
             benchmarks[folder.name] = report.mean
+            intervals[folder.name] = report.interval
+            text = json.dumps(report.outcomes, sort_keys=True)
+            durable(
+                self.out / f"outcomes-{folder.name}.json",
+                lambda h, t=text: h.write(t.encode()),
+            )
             summaries.extend(
                 Summary(folder.name, c.tau, c.precision, c.coverage)
                 for c in report.confidence.values()
@@ -279,6 +289,7 @@ class Experiment:
             tokens_per_second=result.budget.consumed / result.seconds,
             train_tokens=len(train),
             benchmarks=benchmarks,
+            intervals=intervals,
             bits_per_char=losses[-1]
             * len(dev)
             / math.log(2)

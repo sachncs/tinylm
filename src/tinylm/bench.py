@@ -9,6 +9,7 @@ from tokenizers import Tokenizer
 from torch.nn import functional
 
 from tinylm import model, tokenizer
+from tinylm.bootstrap import Bootstrap, Interval
 
 BOS = tokenizer.SPECIAL_TOKENS.index("<bos>")
 PAD = tokenizer.SPECIAL_TOKENS.index("<pad>")
@@ -98,11 +99,17 @@ class Confidence:
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class Report:
-    """Accuracy per paradigm, their unweighted mean, and pooled confidence."""
+    """Accuracy per paradigm, their mean with a 95% interval, and confidence.
+
+    outcomes holds, per paradigm, whether each pair was answered correctly in
+    file order, so two models can be compared item by item.
+    """
 
     by_paradigm: dict[str, float]
     mean: float
     confidence: dict[float, Confidence]
+    interval: Interval
+    outcomes: dict[str, list[bool]]
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -194,8 +201,11 @@ class Bench:
             for name, values in margins.items()
         }
         pooled = [m for values in margins.values() for m in values]
+        outcomes = {k: [m > 0 for m in v] for k, v in margins.items()}
         return Report(
             by_paradigm,
             sum(by_paradigm.values()) / len(by_paradigm),
             {tau: Confidence.of(pooled, tau) for tau in taus},
+            Bootstrap().mean(outcomes),
+            outcomes,
         )

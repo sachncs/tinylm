@@ -161,6 +161,12 @@ class TestDirectory:
             sum(report.by_paradigm.values()) / 2
         )
         assert report.confidence[0.5].total == 4
+        assert report.interval.level == 0.95
+        assert report.interval.low <= report.mean <= report.interval.high
+        assert {k: len(v) for k, v in report.outcomes.items()} == {
+            "p1": 2,
+            "p2": 2,
+        }
         assert (
             report.confidence[2.0].coverage <= report.confidence[0.5].coverage
         )

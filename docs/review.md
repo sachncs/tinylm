@@ -38,17 +38,17 @@ FIXED (with commit), OPEN (planned), CHECKED (suspected, measured, no defect).
 ## Data processing and handling
 | # | Sev | Finding | Evidence | Status |
 |---|-----|---------|----------|--------|
-| D1 | P1 | **Dev set leaks training text**: 4.5% of dev lines with >= 6 words (167/3,674) are exact copies of training lines (33% of all dev lines, mostly short utterances). Dev loss and bits/char are optimistic. | measured on Strict-Small. | OPEN |
-| D2 | P2 | Duplicate removal is per source only; cross-source duplicates remain; no near-duplicate removal. | `prepare.py:88`. | OPEN |
-| D3 | P2 | No Unicode normalisation (NFC) before tokenising. | `clean.py`. | OPEN |
-| D4 | P2 | Output lineage is partial: inputs are hashed but the settings, tokenizer hash and code revision are not recorded in `stats.json`. | `prepare.py`. | OPEN |
+| D1 | P1 | (FIXED: `Prepare.unique` drops dev lines of >= 6 words that occur in train; count in `stats.json`) **Dev set leaked training text**: 4.5% of dev lines with >= 6 words (167/3,674) are exact copies of training lines (33% of all dev lines, mostly short utterances). Dev loss and bits/char are optimistic. | measured on Strict-Small. | OPEN |
+| D2 | P2 | Duplicate removal was per source only; no near-duplicate removal. | `prepare.py`. | PARTLY FIXED (exact long-line dedupe now shared across sources; near-duplicates OPEN) |
+| D3 | P2 | No Unicode normalisation (NFC) before tokenising. | `clean.py`. | FIXED |
+| D4 | P2 | Output lineage was partial. | `prepare.py`. | FIXED (settings and tokenizer hash in `stats.json`, version 2; code revision is in each run's provenance) |
 | D5 | P3 | Whitespace word counts used for dedupe/stats mis-count languages without spaces (needed for the MultiLingual track). | `clean.dedupe`. | OPEN |
 | D6 | P3 | `splitlines()` could split on form-feed and other separators. | measured: differs from `split("\n")` only by the trailing newline in all six sources. | CHECKED (no defect) |
 
 ## Evaluation (raised by the user: do not lower the bar)
 | # | Sev | Finding | Evidence | Status |
 |---|-----|---------|----------|--------|
-| V1 | P1 | Reported scores have no uncertainty: no confidence intervals, no paired comparison between models. | `Bench.Report`. | OPEN |
+| V1 | P1 | Reported scores had no uncertainty: no confidence intervals, no paired comparison between models. | `Bench.Report`. | FIXED (`Bootstrap`: 95% intervals on every benchmark mean; per-item outcomes saved; `scripts/compare.py` for paired differences) |
 | V2 | P1 | Screening uses the fast BLiMP subset; headline numbers must come from the full official suites (BLiMP, supplement, EWoK, entity tracking, COMPS, reading, GLUE), not the subset. | `configs/screen.toml`. | OPEN (rule + official-pipeline script) |
 | V3 | P1 | The 24-run screen estimates main effects only; interactions are aliased and two-level designs miss mid-range optima. | design theory; reviewer note. | OPEN (foldover + full factorial on the top factors; then replicated confirmation) |
 | V4 | P2 | Single seed per screen run; winners need replicates before any claim. | design. | OPEN |
