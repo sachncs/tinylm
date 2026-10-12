@@ -8,6 +8,7 @@ import pytest
 from tinylm.clean import Options
 from tinylm.experiment import Error, Experiment, Queue
 from tinylm.prepare import Prepare
+from tinylm.tokens import Token
 
 TOML = """
 name = "tiny"
@@ -218,6 +219,8 @@ class TestRun:
         )
         assert saved["epochs_used"] <= 2.0 and saved["bits_per_char"] > 0
         assert (tmp_path / "o" / "checkpoint.pt").is_file()
+        # With no weight averaging the final model is the last epoch's model.
+        assert saved["final_loss"] == pytest.approx(saved["dev_loss"][-1])
         trace = saved["provenance"]
         assert len(trace["revision"]) == 40 and isinstance(trace["dirty"], bool)
         assert trace["device"] == "cpu" and len(trace["config"]) == 64
@@ -260,3 +263,41 @@ class TestRun:
     def test_missing_prepared_data_is_reported(self, tmp_path: pathlib.Path):
         with pytest.raises(FileNotFoundError):
             Experiment.load(config(tmp_path, data="absent")).run()
+
+
+@pytest.mark.e2e
+class TestFinalModel:
+    def test_with_ema_the_reported_loss_is_of_the_averaged_weights(
+        self, tmp_path: pathlib.Path
+    ):
+        prepared(tmp_path)
+        experiment = Experiment.load(config(tmp_path)).override(
+            ["train.ema=0.9"], "avg"
+        )
+        metrics = experiment.run()
+        net, tok = experiment.restore()
+        dev = Token.load(experiment.data / "dev")
+        assert experiment.train.evaluate(net, dev) == pytest.approx(
+            metrics.final_loss, rel=1e-6
+        )
+        assert metrics.final_loss != pytest.approx(
+            metrics.dev_loss[-1], rel=1e-9
+        )
+        assert tok.get_vocab_size() == net.config.vocab_size
+
+    def test_the_resolved_experiment_is_saved_next_to_the_results(
+        self, tmp_path: pathlib.Path
+    ):
+        prepared(tmp_path)
+        experiment = Experiment.load(config(tmp_path))
+        experiment.run()
+        saved = json.loads((tmp_path / "o" / "experiment.json").read_text())
+        assert saved["name"] == "tiny" and saved["train"]["epochs"] == 2
+        assert saved["model"]["d_model"] == 16
+
+    def test_restore_without_a_finished_run_fails_loudly(
+        self, tmp_path: pathlib.Path
+    ):
+        prepared(tmp_path)
+        with pytest.raises(FileNotFoundError):
+            Experiment.load(config(tmp_path)).restore()

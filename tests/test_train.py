@@ -204,10 +204,10 @@ class TestRun:
         train(masked=0.5).run(hybrid, noise(), tmp_path / "b")
         train(ema=0.9).run(averaged, noise(), tmp_path / "c")
         assert not same(base, hybrid) and not same(base, averaged)
-        live = torch.load(tmp_path / "c" / "checkpoint.pt")["model"]
-        assert any(
-            not torch.equal(live[k], v)
-            for k, v in averaged.state_dict().items()
+        # The checkpoint of a finished run holds the model that was returned.
+        saved = torch.load(tmp_path / "c" / "checkpoint.pt")["model"]
+        assert all(
+            torch.equal(saved[k], v) for k, v in averaged.state_dict().items()
         )
 
     def test_epoch_callback_runs_once_per_epoch_in_order(

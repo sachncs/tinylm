@@ -398,8 +398,8 @@ class Train:
             if after:
                 after(epoch)
             clock = time.perf_counter()
-        session.checkpoint(path, fingerprint)
         session.finish()
+        session.checkpoint(path, fingerprint)
         device.sync()
         seconds += time.perf_counter() - clock
         return Result(losses, session.step, session.budget, seconds)

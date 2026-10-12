@@ -9,6 +9,8 @@ import pathlib
 import tomllib
 import typing
 
+from tokenizers import Tokenizer
+
 from tinylm import model, seeding, tokenizer
 from tinylm.atomic import durable
 from tinylm.bench import Bench
@@ -16,7 +18,7 @@ from tinylm.bootstrap import Interval
 from tinylm.offline import Offline
 from tinylm.provenance import Provenance
 from tinylm.tokens import Token
-from tinylm.train import Train
+from tinylm.train import CHECKPOINT, Checkpoint, Train
 
 log = logging.getLogger(__name__)
 TOP_LEVEL = ("name", "data", "out", "evals", "taus", "model", "train")
@@ -108,13 +110,15 @@ class Metrics:
 
     Attributes:
         parameters: Trainable parameters.
-        dev_loss: Dev cross-entropy after each epoch.
+        dev_loss: Dev cross-entropy after each epoch (live weights).
+        final_loss: Dev cross-entropy of the returned final model (equal to
+            the last epoch's value unless weight averaging is on).
         epochs_used: Epochs consumed according to the ledger.
         tokens_per_second: Training throughput.
         train_tokens: Tokens in the training stream.
         benchmarks: Mean paradigm accuracy per evaluation folder.
         intervals: 95% bootstrap interval of each benchmark mean.
-        bits_per_char: Final dev bits per character.
+        bits_per_char: Dev bits per character of the final model.
         confidence: Confident-correct summaries per folder and threshold.
         seconds: Device-synchronised training time (evaluation excluded).
         provenance: Code revision, environment and input fingerprints.
@@ -122,6 +126,7 @@ class Metrics:
 
     parameters: int
     dev_loss: list[float]
+    final_loss: float
     epochs_used: float
     tokens_per_second: float
     train_tokens: int
@@ -266,6 +271,18 @@ class Experiment:
         with Offline():
             return self.execute()
 
+    def restore(self) -> tuple[model.TinyLM, Tokenizer]:
+        """Loads the final model of a finished run, on the CPU.
+
+        Raises:
+            FileNotFoundError: If the run has no checkpoint.
+        """
+        saved = Checkpoint.read(self.out / CHECKPOINT, "cpu")
+        vocab = Token.load(self.data / "train").vocab
+        net = model.TinyLM(dataclasses.replace(self.model, vocab_size=vocab))
+        net.load_state_dict(saved.model)
+        return net.eval(), tokenizer.load(self.data / "tokenizer.json")
+
     def execute(self) -> Metrics:
         """Does the work of run() once the inputs are known to exist."""
         tok = tokenizer.load(self.data / "tokenizer.json")
@@ -284,7 +301,12 @@ class Experiment:
             net.train()
 
         self.out.mkdir(parents=True, exist_ok=True)
+        resolved = json.dumps(dataclasses.asdict(self), indent=2, default=str)
+        durable(
+            self.out / "experiment.json", lambda h: h.write(resolved.encode())
+        )
         result = self.train.run(net, train, self.out, after=after)
+        final = self.train.evaluate(net, dev)
         bench = Bench(net, tok, self.train.device)
         benchmarks: dict[str, float] = {}
         intervals: dict[str, Interval] = {}
@@ -308,6 +330,7 @@ class Experiment:
         metrics = Metrics(
             parameters=model.count(net),
             dev_loss=losses,
+            final_loss=final,
             epochs_used=result.budget.epochs_used,
             tokens_per_second=result.budget.consumed / result.seconds,
             train_tokens=len(train),
