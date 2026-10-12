@@ -10,7 +10,7 @@ FIXED (with commit), OPEN (planned), CHECKED (suspected, measured, no defect).
 |---|-----|---------|----------|--------|
 | E1 | P1 | Resume never checked that config or data match the checkpoint; a changed run silently continued from foreign state. | `Checkpoint` had no version, config hash or data hash. | FIXED (fingerprint of config, model and data; versioned checkpoint; mismatch raises) |
 | E2 | P1 | Checkpoint and metrics writes were not durable: no fsync of file or directory; metrics.json not atomic. | `grep fsync src` = 0. | FIXED (`atomic.durable`: temp file, fsync, rename, directory fsync) |
-| E3 | P1 | Results carry no provenance (git revision, dirty flag, library versions, device, config and data fingerprints), so a number cannot be traced to its code. | `Metrics` has no such fields. | OPEN |
+| E3 | P1 | Results carried no provenance (git revision, dirty flag, library versions, device, config and data fingerprints). | `Metrics` had no such fields. | FIXED (`Provenance` in every `metrics.json`) |
 | E4 | P2 | Output is `print` only: no structured logs, no run log file. | 1 `print` in src, 0 `logging`. | OPEN |
 | E5 | P2 | 17 type/lint suppressions remain; each hides a check. | `grep -rn "pyright: ignore\|noqa"` = 17. | OPEN (justify or remove each) |
 | E6 | P2 | The quality gate is a script, not enforced: a red commit is possible (already happened twice). | history. | OPEN (pre-commit hook) |

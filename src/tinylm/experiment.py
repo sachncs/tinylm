@@ -1,6 +1,7 @@
 """TOML-configured experiments: parse, override, queue and run."""
 
 import dataclasses
+import hashlib
 import json
 import math
 import pathlib
@@ -11,12 +12,14 @@ from tinylm import model, seeding, tokenizer
 from tinylm.atomic import durable
 from tinylm.bench import Bench
 from tinylm.offline import Offline
+from tinylm.provenance import Provenance
 from tinylm.tokens import Token
 from tinylm.train import Train
 
 TOP_LEVEL = ("name", "data", "out", "evals", "taus", "model", "train")
 SECTIONS = ("model", "train")
 VOCAB = 8192
+ROOT = pathlib.Path(__file__).resolve().parents[2]
 
 
 class Error(Exception):
@@ -86,6 +89,8 @@ class Metrics:
         benchmarks: Mean paradigm accuracy per evaluation folder.
         bits_per_char: Final dev bits per character.
         confidence: Confident-correct summaries per folder and threshold.
+        seconds: Device-synchronised training time (evaluation excluded).
+        provenance: Code revision, environment and input fingerprints.
     """
 
     parameters: int
@@ -96,6 +101,8 @@ class Metrics:
     benchmarks: dict[str, float]
     bits_per_char: float
     confidence: tuple[Summary, ...]
+    seconds: float
+    provenance: Provenance
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -160,6 +167,14 @@ class Experiment:
         )
         loaded.check(vocab)
         return loaded
+
+    def fingerprint(self) -> str:
+        """Hash of everything that defines this experiment (not its name)."""
+        settings = dataclasses.asdict(self)
+        for key in ("name", "out"):
+            del settings[key]
+        text = json.dumps(settings, sort_keys=True, default=str)
+        return hashlib.sha256(text.encode()).hexdigest()
 
     def check(self, vocab: int) -> None:
         """Raises Error if the model exceeds the parameter budget."""
@@ -254,6 +269,9 @@ class Experiment:
                 Summary(folder.name, c.tau, c.precision, c.coverage)
                 for c in report.confidence.values()
             )
+        trace = Provenance.capture(
+            ROOT, self.train.device, self.fingerprint(), train.fingerprint()
+        )
         metrics = Metrics(
             parameters=model.count(net),
             dev_loss=losses,
@@ -266,6 +284,8 @@ class Experiment:
             / math.log(2)
             / stats["dev_chars"],
             confidence=tuple(summaries),
+            seconds=result.seconds,
+            provenance=trace,
         )
         text = json.dumps(dataclasses.asdict(metrics), indent=2) + "\n"
         durable(self.out / "metrics.json", lambda h: h.write(text.encode()))

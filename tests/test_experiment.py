@@ -218,6 +218,11 @@ class TestRun:
         )
         assert saved["epochs_used"] <= 2.0 and saved["bits_per_char"] > 0
         assert (tmp_path / "o" / "checkpoint.pt").is_file()
+        trace = saved["provenance"]
+        assert len(trace["revision"]) == 40 and isinstance(trace["dirty"], bool)
+        assert trace["device"] == "cpu" and len(trace["config"]) == 64
+        assert len(trace["data"]) == 64 and trace["torch"]
+        assert saved["seconds"] > 0
 
     def test_benchmarks_scored_and_missing_dir_fails_before_training(
         self, tmp_path: pathlib.Path
