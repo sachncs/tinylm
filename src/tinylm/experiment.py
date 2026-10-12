@@ -201,6 +201,35 @@ class Experiment:
         loaded.check(vocab)
         return loaded
 
+    @classmethod
+    def from_run(cls, folder: pathlib.Path) -> Experiment:
+        """Rebuilds the experiment a run folder was produced by.
+
+        Raises:
+            FileNotFoundError: If the folder has no experiment.json.
+            Error: If experiment.json is damaged or incomplete.
+        """
+        path = folder / "experiment.json"
+        if not path.is_file():
+            raise FileNotFoundError(path)
+        try:
+            raw = json.loads(path.read_text())
+            return cls(
+                name=raw["name"],
+                data=pathlib.Path(raw["data"]),
+                out=pathlib.Path(raw["out"]),
+                model=build(model.Config, raw["model"], "model"),
+                train=build(Train, raw["train"], "train"),
+                evals=tuple(pathlib.Path(p) for p in raw["evals"]),
+                taus=tuple(float(t) for t in raw["taus"]),
+            )
+        except json.JSONDecodeError as error:
+            raise Error(f"damaged experiment.json in {folder}") from error
+        except KeyError as error:
+            raise Error(
+                f"experiment.json in {folder} is missing {error}"
+            ) from error
+
     def fingerprint(self) -> str:
         """Hash of everything that defines this experiment (not its name)."""
         settings = dataclasses.asdict(self)

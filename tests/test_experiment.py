@@ -295,6 +295,29 @@ class TestFinalModel:
         assert saved["name"] == "tiny" and saved["train"]["epochs"] == 2
         assert saved["model"]["d_model"] == 16
 
+    def test_from_run_rebuilds_the_identical_experiment(
+        self, tmp_path: pathlib.Path
+    ):
+        prepared(tmp_path)
+        experiment = Experiment.load(config(tmp_path)).override(
+            ["train.epochs=1", "model.codebook_sizes="], "again"
+        )
+        experiment.run()
+        assert Experiment.from_run(experiment.out) == experiment
+
+    def test_from_run_rejects_a_missing_or_damaged_description(
+        self, tmp_path: pathlib.Path
+    ):
+        with pytest.raises(FileNotFoundError):
+            Experiment.from_run(tmp_path / "nothing")
+        (tmp_path / "run").mkdir()
+        (tmp_path / "run" / "experiment.json").write_text("{not json")
+        with pytest.raises(Error, match="experiment.json"):
+            Experiment.from_run(tmp_path / "run")
+        (tmp_path / "run" / "experiment.json").write_text('{"name": "x"}')
+        with pytest.raises(Error, match="missing"):
+            Experiment.from_run(tmp_path / "run")
+
     def test_restore_without_a_finished_run_fails_loudly(
         self, tmp_path: pathlib.Path
     ):
