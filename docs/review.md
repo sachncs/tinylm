@@ -50,7 +50,7 @@ FIXED (with commit), OPEN (planned), CHECKED (suspected, measured, no defect).
 |---|-----|---------|----------|--------|
 | V1 | P1 | Reported scores had no uncertainty: no confidence intervals, no paired comparison between models. | `Bench.Report`. | FIXED (`Bootstrap`: 95% intervals on every benchmark mean; per-item outcomes saved; `scripts/compare.py` for paired differences) |
 | V2 | P1 | Screening uses the fast BLiMP subset; headline numbers must come from the full official suites (BLiMP, supplement, EWoK, entity tracking, COMPS, reading, GLUE), not the subset. | `configs/screen.toml`. | OPEN (rule + official-pipeline script) |
-| V3 | P1 | The 24-run screen estimates main effects only; interactions are aliased and two-level designs miss mid-range optima. | design theory; reviewer note. | OPEN (foldover + full factorial on the top factors; then replicated confirmation) |
+| V3 | P1 | The 24-run screen estimates main effects only; interactions are aliased and two-level designs miss mid-range optima. | design theory; reviewer note. | PARTLY FIXED (`Design.foldover` and `Factorial`: full 2^k design with all two-factor interactions judged by Lenth's method, tested on planted interactions; the follow-up runs on the screen's top factors are OPEN until the screen finishes; mid-range optima need line searches, OPEN) |
 | V4 | P2 | Single seed per screen run; winners need replicates before any claim. | design. | OPEN |
 | V5 | P2 | The in-house scorer was validated against the official pipeline once, on a model that no longer exists. | `docs/baselines.md` (lost). | OPEN |
 | V6 | P2 | Thresholds (tau) are fixed in advance (good), but no calibration measure is reported next to precision. | `Bench`. | OPEN |

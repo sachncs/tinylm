@@ -4,7 +4,8 @@ import math
 
 import pytest
 import torch
-from tinylm.screen import Design, Factor, Point, Screen, front
+
+from tinylm.screen import Design, Factor, Factorial, Point, Screen, front
 
 
 class TestDesign:
@@ -126,3 +127,71 @@ class TestFront:
             Point("x", 0.5, 0.5, 0.0)
         with pytest.raises(ValueError, match="accuracy"):
             Point("x", 1.5, 0.5, 1.0)
+
+
+class TestFactorial:
+    def test_full_design_has_every_combination_once(self):
+        design = Factorial(factors(3))
+        runs = design.runs()
+        assert len(runs) == 8
+        assert len({run.sets for run in runs}) == 8
+
+    def test_main_effects_and_an_interaction_are_recovered(self):
+        design = Factorial(factors(4))
+        generator = torch.Generator()
+        generator.manual_seed(0)
+        rows = torch.tensor(design.rows, dtype=torch.float32)
+        a, b = rows[:, 0], rows[:, 1]
+        response = (
+            10.0
+            + 3.0 * a
+            - 2.0 * b
+            + 4.0 * a * b
+            + 0.05 * torch.randn(16, generator=generator)
+        )
+        found = design.analyse([float(y) for y in response])
+        by_name = {t.name: t for t in found.terms}
+        assert by_name["f0"].effect == pytest.approx(6.0, abs=0.3)
+        assert by_name["f1"].effect == pytest.approx(-4.0, abs=0.3)
+        assert by_name["f0*f1"].effect == pytest.approx(8.0, abs=0.3)
+        flagged = {t.name for t in found.terms if t.significant}
+        assert flagged == {"f0", "f1", "f0*f1"}
+        assert len(found.terms) == 4 + 6
+
+    def test_a_pure_interaction_is_visible_where_main_effects_are_zero(self):
+        design = Factorial(factors(3))
+        rows = torch.tensor(design.rows, dtype=torch.float32)
+        response = [float(y) for y in 5.0 + 2.0 * rows[:, 0] * rows[:, 1]]
+        found = design.analyse(response)
+        by_name = {t.name: t for t in found.terms}
+        assert by_name["f0"].effect == pytest.approx(0.0, abs=1e-9)
+        assert by_name["f1"].effect == pytest.approx(0.0, abs=1e-9)
+        assert by_name["f0*f1"].effect == pytest.approx(4.0)
+        assert by_name["f0*f1"].significant
+
+    def test_pure_noise_flags_nothing_large(self):
+        design = Factorial(factors(4))
+        generator = torch.Generator()
+        generator.manual_seed(5)
+        noise = [float(y) for y in torch.randn(16, generator=generator)]
+        assert sum(t.significant for t in design.analyse(noise).terms) <= 1
+
+    def test_validation(self):
+        with pytest.raises(ValueError, match="factors"):
+            Factorial(factors(1))
+        with pytest.raises(ValueError, match="factors"):
+            Factorial(factors(9))
+        with pytest.raises(ValueError, match="unique"):
+            Factorial((factors(1)[0], factors(1)[0]))
+        with pytest.raises(ValueError, match="16"):
+            Factorial(factors(4)).analyse([1.0] * 5)
+        with pytest.raises(ValueError, match="finite"):
+            Factorial(factors(4)).analyse([float("inf")] + [1.0] * 15)
+
+
+def test_foldover_doubles_the_runs_and_keeps_the_design_orthogonal():
+    folded = Design.pb24().foldover()
+    matrix = torch.tensor(folded.rows, dtype=torch.float32)
+    assert matrix.shape == (48, 23)
+    assert torch.equal(matrix[24:], -matrix[:24])
+    assert torch.equal(matrix.T @ matrix, 48 * torch.eye(23))
