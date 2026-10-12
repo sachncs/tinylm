@@ -133,14 +133,13 @@ class Bench:
             ValueError: If a sentence is empty or too long for the model.
         """
         self.net.to(self.device).eval()
-        encoded: list[list[int]] = []
-        for sentence in sentences:
-            ids = self.tok.encode(sentence).ids
+        encoded = [e.ids for e in self.tok.encode_batch(sentences)]
+        limit = self.net.config.max_seq_len
+        for ids in encoded:
             if not ids:
                 raise ValueError("empty sentence")
-            if len(ids) + 1 > self.net.config.max_seq_len:
+            if len(ids) + 1 > limit:
                 raise ValueError("sentence exceeds max_seq_len")
-            encoded.append(ids)
         totals: list[float] = []
         for start in range(0, len(encoded), BATCH):
             chunk = encoded[start : start + BATCH]

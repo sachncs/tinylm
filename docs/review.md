@@ -25,7 +25,7 @@ FIXED (with commit), OPEN (planned), CHECKED (suspected, measured, no defect).
 | O1 | P3 | Training syncs with the device every step (`isfinite(loss)`, `float(loss)`). Hypothesis: this serialises the device. **Measured: 162.8 ms vs 162.0 ms per step with the sync removed (0.5%)**, so it is not a bottleneck; per-step checking is kept because it reports the exact failing step. | `train.py`, MPS benchmark. | CHECKED (no change) |
 | O2 | P3 | Attention masks were rebuilt on CPU and copied to the device on every forward; pure-causal full attention did not use `is_causal`. Hypothesis: a speed-up. **Measured: 154.0 ms vs 155.1 ms per step (under 1%)**. Masks are now cached and global layers take the fused path (tested equal to the explicit-mask path), kept for cleanliness, not speed. | `model.py`, MPS benchmark. | FIXED (no speed gain) |
 | O3 | P2 | `Prepare` held every cleaned line of the corpus in Python lists (multiple copies). **Measured: 7.36 GB peak resident for Strict.** | `prepare.py`, `tokenizer.train` copied lines. | FIXED (streams through temporary files; only 64-bit fingerprints of long training lines stay in memory). **Measured: 2.74 GB peak, 127 s vs 138 s, and the train and dev streams are byte-identical to the old output** (golden test on the fixture, fingerprint comparison on full Strict) |
-| O4 | P3 | Scoring tokenises sentences one by one. | `bench.py`. | OPEN |
+| O4 | P3 | Scoring tokenised sentences one by one. | `bench.py`. | FIXED (`encode_batch`) |
 | O5 | P3 | bf16/fp16 gave no speed-up on MPS (measured 7.4k/8.1k vs 7.9k tokens/s): documented, no change. | earlier measurement. | CHECKED |
 
 ## Hardware acceleration
@@ -34,7 +34,7 @@ FIXED (with commit), OPEN (planned), CHECKED (suspected, measured, no defect).
 | H1 | P1 | (fixed in `device.py`: availability and fallback checks, loud errors) `device = "mps"` was trusted blindly: no availability check, and MPS CPU-fallback env var is not verified off (silent CPU fallback hides slow or wrong paths). | configs, `train.py`. | FIXED (`Train.run` resolves the device first and raises with the reason) |
 | H2 | P2 | Throughput was wall-clock including evaluation and callbacks, not synchronised with the device. | `experiment.py`. | FIXED (`Result.seconds`: device-synchronised, callbacks excluded) |
 | H3 | P2 | No device-memory release between runs in one process. | seen risk. | FIXED (one process per run; `Device.release` exists for in-process use) |
-| H4 | P3 | `torch.compile`/graph capture not assessed on MPS. | -- | OPEN (measure, report) |
+| H4 | P2 | `torch.compile` on MPS. **Measured under identical GPU contention: 187 ms vs 242 ms per step (about 23% faster)**, with graph breaks reported at the cached-mask lookup and a one-time compile cost that is large next to a 5-minute screen. Worth it for long final runs only if it holds in isolation and stays numerically equivalent. | benchmark (screen was using the GPU, so only the pair is comparable). | OPEN (re-measure with an idle GPU incl. compile time; fix graph breaks; check numerics) |
 
 ## Data processing and handling
 | # | Sev | Finding | Evidence | Status |
