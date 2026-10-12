@@ -1,0 +1,34 @@
+{
+  "entries": [
+    {
+      "name": "bnc_spoken.train.txt",
+      "num_bytes": 39534314,
+      "sha256": "4f6cc76f656d5666941852196e35fb5f060bcbb8abebb0b70fe17c3802428a0c"
+    },
+    {
+      "name": "childes.train.txt",
+      "num_bytes": 152297628,
+      "sha256": "d6c0e39e2c283bfa5489cde80031a4fb9237ca8065a8301580df10e3b6843a98"
+    },
+    {
+      "name": "gutenberg.train.txt",
+      "num_bytes": 141116557,
+      "sha256": "ee404a84c2f42e0cd52bdaa0366cf398328be1b038ede33d07851f69ea1c2837"
+    },
+    {
+      "name": "open_subtitles.train.txt",
+      "num_bytes": 121187495,
+      "sha256": "9aa48a9448ce6450238868537e4aab43065cca5dae94c948a189e5b802911929"
+    },
+    {
+      "name": "simple_wiki.train.txt",
+      "num_bytes": 87947184,
+      "sha256": "b7cd8fd945d3986c673bf92fa28df44bf8e4ea655c37c2cacd97cdd8a9146cf2"
+    },
+    {
+      "name": "switchboard.train.txt",
+      "num_bytes": 1219017,
+      "sha256": "2cb1ed1b47300893b29254081830899c80ac174278b1c1abcade2887821265b1"
+    }
+  ]
+}
