@@ -7,7 +7,13 @@ from tinylm.offline import Offline
 from tinylm.prepare import Prepare
 
 RUNS = pathlib.Path("runs")
-STORES = (("small", 4096), ("small", 8192), ("small", 16384), ("strict", 8192))
+STORES = (
+    ("small", 4096),
+    ("small", 8192),
+    ("small", 16384),
+    ("strict", 8192),
+    ("strict", 16384),
+)
 
 
 def main() -> None:
