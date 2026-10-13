@@ -18,3 +18,11 @@ set = ["train.epochs=4", "train.seed=2", "model.exclusive=2,3,4,5", "train.compi
 [[run]]
 name = "xr0s0"
 set = ["train.epochs=4", "train.seed=0", "model.exclusive=2,3,4,5", "model.recency=true", "train.compile=true"]
+
+[[run]]
+name = "xr0s1"
+set = ["train.epochs=4", "train.seed=1", "model.exclusive=2,3,4,5", "model.recency=true", "train.compile=true"]
+
+[[run]]
+name = "xr0s2"
+set = ["train.epochs=4", "train.seed=2", "model.exclusive=2,3,4,5", "model.recency=true", "train.compile=true"]
