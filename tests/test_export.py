@@ -6,7 +6,7 @@ from typing import Any
 
 import pytest
 import torch
-from transformers import AutoModelForCausalLM
+from transformers import AutoModel, AutoModelForCausalLM
 
 from tinylm import model, seeding, tokenizer
 from tinylm.export import Error, Export
@@ -98,3 +98,53 @@ def test_negative_cases_leave_nothing_behind(tmp_path: pathlib.Path):
         Export(net(), tok()).write(tmp_path / "taken")
     assert not (tmp_path / "big").exists() and not (tmp_path / "v").exists()
     assert not list(tmp_path.glob("*.partial"))
+
+
+def load_base(path: pathlib.Path) -> Any:
+    """Loads the exported AutoModel view (its stubs are partly unknown)."""
+    loader = typing.cast("Any", AutoModel)
+    return loader.from_pretrained(path, trust_remote_code=True).eval()
+
+
+def test_base_model_returns_the_state_at_the_last_real_token(
+    tmp_path: pathlib.Path,
+):
+    original = net(recency=True, exclusive=(1, 2), cross=(0,))
+    Export(original, tok()).write(tmp_path / "out")
+    base = load_base(tmp_path / "out")
+    assert base.config.hidden_size == 32
+    long = torch.randint(3, original.config.vocab_size, (1, 12))
+    short = torch.randint(3, original.config.vocab_size, (1, 7))
+    padded = torch.zeros(2, 12, dtype=torch.long)
+    padded[0] = long[0]
+    padded[1, :7] = short[0]
+    mask = torch.zeros(2, 12, dtype=torch.long)
+    mask[0] = 1
+    mask[1, :7] = 1
+    left = torch.zeros(2, 12, dtype=torch.long)
+    left[0] = long[0]
+    left[1, 5:] = short[0]
+    left_mask = torch.zeros(2, 12, dtype=torch.long)
+    left_mask[0] = 1
+    left_mask[1, 5:] = 1
+    with torch.no_grad():
+        out = base(input_ids=padded, attention_mask=mask).last_hidden_state
+        assert out.shape == (2, 1, 32)
+        torch.testing.assert_close(out[0, 0], original.hidden(long)[0, -1])
+        torch.testing.assert_close(out[1, 0], original.hidden(short)[0, -1])
+        mirrored = base(input_ids=left, attention_mask=left_mask)
+        torch.testing.assert_close(mirrored.last_hidden_state, out)
+        unmasked = base(input_ids=long).last_hidden_state
+        torch.testing.assert_close(unmasked[0, 0], original.hidden(long)[0, -1])
+
+
+def test_base_model_rejects_malformed_masks(tmp_path: pathlib.Path):
+    Export(net(), tok()).write(tmp_path / "out")
+    base = load_base(tmp_path / "out")
+    tokens = torch.randint(3, 40, (1, 6))
+    with pytest.raises(ValueError, match="2-D"):
+        base(input_ids=tokens, attention_mask=torch.ones(1, 6, 6))
+    with pytest.raises(ValueError, match="no tokens"):
+        base(
+            input_ids=tokens, attention_mask=torch.zeros(1, 6, dtype=torch.long)
+        )

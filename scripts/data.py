@@ -40,6 +40,12 @@ PINS = (
             "evaluation_data/full_eval/reading/*",
         ),
     ),
+    Pin(
+        name="glue",
+        repo="BabyLM-community/BabyLM-2026-Strict-Evals",
+        revision="8d52da9424a9ff30b9e8266c4f751aba9c504233",
+        patterns=("evaluation_data/full_eval/glue_filtered/*",),
+    ),
 )
 
 

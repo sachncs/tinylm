@@ -23,6 +23,7 @@ dev = [
 official = [
     "pandas>=3.0.6",
     "statsmodels>=0.15.0",
+    "wandb>=0.30.0",
 ]
 
 [build-system]

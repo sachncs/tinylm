@@ -600,3 +600,11 @@ class TestCross:
         torch.testing.assert_close(
             torch.compile(net)(batch()), net(batch()), rtol=1e-4, atol=1e-5
         )
+
+
+class TestHidden:
+    def test_logits_are_the_head_applied_to_the_hidden_states(self):
+        net = make_net()
+        hidden = net.hidden(batch())
+        assert hidden.shape == (2, 12, 32)
+        torch.testing.assert_close(net(batch()), net.head(hidden))

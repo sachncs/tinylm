@@ -397,7 +397,16 @@ class TinyLM(nn.Module):
         causal: bool = True,
         local_window: int | None = None,
     ) -> torch.Tensor:
-        """Computes per-position token logits.
+        """Computes per-position token logits (see hidden for the arguments)."""
+        return self.head(self.hidden(tokens, causal, local_window))
+
+    def hidden(
+        self,
+        tokens: torch.Tensor,
+        causal: bool = True,
+        local_window: int | None = None,
+    ) -> torch.Tensor:
+        """Computes the final-normalised hidden state at every position.
 
         Args:
             tokens: Integer tensor of shape (batch, length).
@@ -408,7 +417,7 @@ class TinyLM(nn.Module):
                 trained model relies on long-range attention.
 
         Returns:
-            Float tensor of shape (batch, length, vocab_size).
+            Float tensor of shape (batch, length, d_model).
 
         Raises:
             ValueError: If tokens has the wrong shape, is longer than
@@ -424,8 +433,12 @@ class TinyLM(nn.Module):
             raise ValueError(
                 f"length {length} exceeds max_seq_len {self.config.max_seq_len}"
             )
-        if tokens.numel() and (
-            tokens.min() < 0 or tokens.max() >= self.config.vocab_size
+        # The range check reads tensor values, which would break the compiled
+        # graph; compiled training only sees batches from the validated store.
+        if (
+            not torch.compiler.is_compiling()
+            and tokens.numel()
+            and (tokens.min() < 0 or tokens.max() >= self.config.vocab_size)
         ):
             raise ValueError("token id outside vocab range")
         if local_window is not None and local_window <= 0:
@@ -447,7 +460,7 @@ class TinyLM(nn.Module):
             x = block(x, None if fused else local, causal)
             if index in self.codebook_after:
                 x = self.codebooks[self.codebook_after[index]](x)
-        return self.head(self.final_norm(x))
+        return self.final_norm(x)
 
 
 def count(net: nn.Module) -> int:

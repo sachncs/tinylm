@@ -1,0 +1,74 @@
+{
+  "entries": [
+    {
+      "name": "evaluation_data/full_eval/glue_filtered/boolq.train.jsonl",
+      "num_bytes": 6541468,
+      "sha256": "237efed024a1c944ebd192fd15c360e8bf0cfd3c5d353582178fc53c10333d99"
+    },
+    {
+      "name": "evaluation_data/full_eval/glue_filtered/boolq.valid.jsonl",
+      "num_bytes": 1132714,
+      "sha256": "09491f5c02730c400e230ee013c2e60a5726ff4e7255f5d8e547c756dc907f81"
+    },
+    {
+      "name": "evaluation_data/full_eval/glue_filtered/mnli.train.jsonl",
+      "num_bytes": 2295803,
+      "sha256": "f21924ced5ebe1fb6abcac27556acd8eaa4c2f69add471c2ded8ee3f5d02852b"
+    },
+    {
+      "name": "evaluation_data/full_eval/glue_filtered/mnli.valid.jsonl",
+      "num_bytes": 1110523,
+      "sha256": "3ae64cf09c41b7a84b12b500937cdbb3f74cb1b8fc9dd87a3bfe2f0243b87a68"
+    },
+    {
+      "name": "evaluation_data/full_eval/glue_filtered/mrpc.train.jsonl",
+      "num_bytes": 1092476,
+      "sha256": "4c6d10e778301c9a709a68d27317819564f039ddbf36f7f50ce0edf3a48b520f"
+    },
+    {
+      "name": "evaluation_data/full_eval/glue_filtered/mrpc.valid.jsonl",
+      "num_bytes": 60957,
+      "sha256": "0095cde73fe911541032c2120830a44e145328b813302dcd41e2a498ba2f4082"
+    },
+    {
+      "name": "evaluation_data/full_eval/glue_filtered/multirc.train.jsonl",
+      "num_bytes": 48751935,
+      "sha256": "409a911f2f5f671877be60aa2700c26eda2594e6d0d2ec81b77e6070b13d2e64"
+    },
+    {
+      "name": "evaluation_data/full_eval/glue_filtered/multirc.valid.jsonl",
+      "num_bytes": 4096348,
+      "sha256": "4bd20d922cbc1862994c30e15932c61f7fc26d974ef8b12f72668ca3d8c0af7d"
+    },
+    {
+      "name": "evaluation_data/full_eval/glue_filtered/qqp.train.jsonl",
+      "num_bytes": 1823696,
+      "sha256": "3a79b5ac272ce165d4182f4d61f6de54e26bc5d9f6ac02673a5a6611e9dc6c33"
+    },
+    {
+      "name": "evaluation_data/full_eval/glue_filtered/qqp.valid.jsonl",
+      "num_bytes": 3660622,
+      "sha256": "d54fb89a26e473631816eda0cc5b5da68f2e9b27338e3eed6d19c590460f6a2b"
+    },
+    {
+      "name": "evaluation_data/full_eval/glue_filtered/rte.train.jsonl",
+      "num_bytes": 947972,
+      "sha256": "7777c04bc210d7f62b8a3222f35593c9f7bc9505d604f1908023586e5951be1d"
+    },
+    {
+      "name": "evaluation_data/full_eval/glue_filtered/rte.valid.jsonl",
+      "num_bytes": 50881,
+      "sha256": "fb6265d78821ff5e13e67a9b8b9f8f74b87f750a38e789f22b1aa8c85835694f"
+    },
+    {
+      "name": "evaluation_data/full_eval/glue_filtered/wsc.train.jsonl",
+      "num_bytes": 132379,
+      "sha256": "90f8c3d71dcc9837d3f7dbcd42e652875fba7006aa6724cb9acb5a920b4c047a"
+    },
+    {
+      "name": "evaluation_data/full_eval/glue_filtered/wsc.valid.jsonl",
+      "num_bytes": 14653,
+      "sha256": "cff18ef1631d5f93076f6d89b6922924e33de3cc754d2835b6a3367fd0fb6020"
+    }
+  ]
+}
