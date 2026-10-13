@@ -110,3 +110,12 @@ Remaining, in order (nothing below has been done):
    cross-check on a trained model (V5).
 6. Report: update `docs/paper.md` only with measured, interval-qualified
    numbers; the 0.90 BLiMP stretch target is reported as reached or not.
+
+
+## Status (2026-10-14, 00:40)
+Done: screen, factorial, attention comparisons (docs/findings/), final models
+trained and scored with the official pipeline: Strict-Small 3.7M BLiMP 67.39,
+Strict 12.9M BLiMP 74.80 (docs/paper.md). The 0.90 target is not reached at
+either size. Blocked: MultiLingual 22M (gated data; needs `hf auth login`).
+Open by choice: more seeds/ablations of the final recipe, remaining official
+tasks (EWoK, COMPS, reading, GLUE).

@@ -1,7 +1,7 @@
 # TinyLM: how small can an accurate and precise language model be? (working draft)
 
-Status: results for the 3.7M Strict-Small model are final for this draft; the
-12.9M Strict model is training (see "Pending"). Every number below was measured
+Status: results for the 3.7M Strict-Small and 12.9M Strict models are final for
+this draft; MultiLingual is blocked (see "Pending"). Every number below was measured
 in this repository; nothing is quoted from memory. Intervals are 95% bootstrap
 intervals over benchmark items unless stated.
 
@@ -28,6 +28,23 @@ The in-house scorer agrees with the official one to 0.04 (BLiMP) and 0.11
 (supplement) points on this model; earlier on a different model it read 1.5
 points low, so only official numbers are headline numbers. EWoK, COMPS, reading
 and GLUE-style tasks have not been run.
+
+## Result: Strict, 12.9M parameters, 10 epochs (`runs/final/strict10`)
+Same recipe scaled up: width 256, 11 layers, 4 heads, exclusive attention in
+layers 3 to 7, lr 3e-3, Strict data (137.7M training tokens), 16.4 hours.
+| Measure | Value |
+|---|---|
+| BLiMP-filtered (official pipeline) | **74.80** |
+| BLiMP supplement (official) | 60.23 |
+| Entity tracking (official) | 15.75 |
+| Fast BLiMP subset (in-house) | 0.748 [0.742, 0.754] |
+| Confident-correct rate at tau = 1 nat | 0.790, covering 83.4% of pairs |
+| Dev bits per character | 1.271 |
+
+Going from 3.7M to 12.9M parameters (and 10x the data) raised official BLiMP by
+7.4 points and the supplement by 3.2, but entity tracking fell from 17.88 to
+15.75; the latter is a single run and was not investigated. The in-house scorer
+read 0.3 and 0.6 points above the official one here.
 
 ## What was decided and on what evidence (Strict-Small, 4 epochs, 3 seeds per arm)
 | Choice | Evidence |
@@ -57,16 +74,16 @@ for the combination in the in-house comparison (+0.010; seeds 1 and 2: -0.002,
   10 on the fast subset).
 - Fast BLiMP differences under about 0.01 are inside seed noise; bits per
   character was the more reliable signal.
-- Single final run per size; the final models have no seed replicates.
-- The 0.90 BLiMP target is **not reached**: 67.4 official. The best published
+- Single final run per size; the final models have no seed replicates. Recency
+  and exclusive attention were never ablated at the 12.9M scale.
+- The 0.90 BLiMP target is **not reached** at either size: 67.4 official
+  (3.7M) and 74.8 official (12.9M). The best published
   Strict-Small result found while planning was about 0.80.
 - Contamination: 167 dev lines that also occurred in training were removed; no
   BLiMP text is used in training or in any training signal.
 
 ## Pending
-- Strict model (12.9M, 10 epochs, about 15 hours): result and its official
-  scores will be added here when the run finishes.
 - MultiLingual (22M): blocked on gated Hugging Face data (needs `hf auth login`
-  and acceptance of the dataset terms).
-- Recency and exclusive attention were chosen on the 3.7M model and are applied
-  to the 12.9M model untested at that size.
+  and acceptance of the dataset terms); not trained.
+- Not run: EWoK, COMPS, reading and GLUE-style tasks; seed replicates and
+  ablations of the final recipe at 12.9M.
