@@ -18,6 +18,7 @@ TASKS = (
     ("blimp_filtered", "blimp"),
     ("supplement_filtered", "blimp"),
     ("entity_tracking", "entity_tracking"),
+    ("comps", "comps"),
 )
 
 

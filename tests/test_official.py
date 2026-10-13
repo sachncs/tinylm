@@ -94,3 +94,10 @@ def test_unknown_task_and_backend_are_rejected():
             pathlib.Path("o"),
             "magic",
         )
+
+
+def test_comps_is_a_supported_task():
+    command = Official(pathlib.Path("root")).command(
+        pathlib.Path("m"), "comps", pathlib.Path("d"), pathlib.Path("o")
+    )
+    assert command[command.index("--task") + 1] == "comps"

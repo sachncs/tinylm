@@ -6,7 +6,7 @@ import pathlib
 import subprocess
 import sys
 
-TASKS = ("blimp", "ewok", "entity_tracking")
+TASKS = ("blimp", "ewok", "entity_tracking", "comps")
 BACKENDS = ("causal", "mlm", "mntp")
 MARKER = "### AVERAGE ACCURACY"
 MODULE = "evaluation_pipeline.sentence_zero_shot.run"

@@ -20,14 +20,18 @@ layers 2 to 5. 3,704,976 parameters. Ten epochs, the allowed maximum.
 | BLiMP-filtered (official pipeline) | **67.39** |
 | BLiMP supplement (official) | 57.04 |
 | Entity tracking (official) | 17.88 |
+| COMPS (official) | 52.46 |
 | Fast BLiMP subset (in-house) | 0.679 [0.672, 0.686] |
 | Confident-correct rate at tau = 1 nat | 0.713, covering 81.5% of pairs |
 | Dev bits per character | 1.405 |
 
 The in-house scorer agrees with the official one to 0.04 (BLiMP) and 0.11
 (supplement) points on this model; earlier on a different model it read 1.5
-points low, so only official numbers are headline numbers. EWoK, COMPS, reading
-and GLUE-style tasks have not been run.
+points low, so only official numbers are headline numbers. COMPS was run later and is
+included; EWoK, reading and GLUE-style tasks have not been run (their data is
+not in the local evaluation set). A rerun scored BLiMP 67.40 against 67.39
+earlier, so the official scorer is not bit-for-bit repeatable at the second
+decimal.
 
 ## Result: Strict, 12.9M parameters, 10 epochs (`runs/final/strict10`)
 Same recipe scaled up: width 256, 11 layers, 4 heads, exclusive attention in
@@ -37,6 +41,7 @@ layers 3 to 7, lr 3e-3, Strict data (137.7M training tokens), 16.4 hours.
 | BLiMP-filtered (official pipeline) | **74.80** |
 | BLiMP supplement (official) | 60.23 |
 | Entity tracking (official) | 15.75 |
+| COMPS (official) | 55.82 |
 | Fast BLiMP subset (in-house) | 0.748 [0.742, 0.754] |
 | Confident-correct rate at tau = 1 nat | 0.790, covering 83.4% of pairs |
 | Dev bits per character | 1.271 |
@@ -85,5 +90,5 @@ for the combination in the in-house comparison (+0.010; seeds 1 and 2: -0.002,
 ## Pending
 - MultiLingual (22M): blocked on gated Hugging Face data (needs `hf auth login`
   and acceptance of the dataset terms); not trained.
-- Not run: EWoK, COMPS, reading and GLUE-style tasks; seed replicates and
+- Not run: EWoK, reading and GLUE-style tasks (no local data); seed replicates and
   ablations of the final recipe at 12.9M.
