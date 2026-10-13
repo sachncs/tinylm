@@ -92,3 +92,22 @@ def test_build_rejects_duplicates_and_traversal(tmp_path: pathlib.Path):
         manifest.build(tmp_path, ["a.txt", "a.txt"])
     with pytest.raises(ValueError, match="relative"):
         manifest.build(tmp_path, ["../etc/passwd"])
+
+
+def test_a_binary_archive_is_verified_by_size_and_hash_not_by_encoding(
+    tmp_path: pathlib.Path,
+):
+    data = b"PK\x03\x04\xff\xfe\x00binary"
+    path = write(tmp_path / "a.zip", data)
+    manifest.verify(path, entry(path, data))
+    with pytest.raises(manifest.Error, match="sha256"):
+        manifest.verify(path, manifest.Entry("a.zip", sha(b"x"), len(data)))
+    with pytest.raises(manifest.Error, match="size"):
+        manifest.verify(path, manifest.Entry("a.zip", sha(data), 3))
+
+
+def test_a_text_file_that_is_not_utf8_is_still_rejected(tmp_path: pathlib.Path):
+    data = b"\xff\xfe broken text"
+    path = write(tmp_path / "a.txt", data)
+    with pytest.raises(manifest.Error, match="utf-8"):
+        manifest.verify(path, entry(path, data))

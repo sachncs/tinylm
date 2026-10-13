@@ -31,6 +31,15 @@ PINS = (
             "evaluation_data/full_eval/comps/*",
         ),
     ),
+    Pin(
+        name="extra",
+        repo="BabyLM-community/BabyLM-2026-Strict-Evals",
+        revision="8d52da9424a9ff30b9e8266c4f751aba9c504233",
+        patterns=(
+            "evaluation_data/fast_eval/ewok_fast.zip",
+            "evaluation_data/full_eval/reading/*",
+        ),
+    ),
 )
 
 

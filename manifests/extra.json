@@ -1,0 +1,14 @@
+{
+  "entries": [
+    {
+      "name": "evaluation_data/fast_eval/ewok_fast.zip",
+      "num_bytes": 34719,
+      "sha256": "310ffb7d7006533d116a2e58e3b89b05a0812cc27a83153b83e46c3cd10d95ba"
+    },
+    {
+      "name": "evaluation_data/full_eval/reading/reading_data.csv",
+      "num_bytes": 615013,
+      "sha256": "45204bc7ccfb10bdb6140797b5e60e83e9a85cc62d195a84ad4566cb429f0065"
+    }
+  ]
+}

@@ -6,6 +6,7 @@ import json
 import pathlib
 
 CHUNK_BYTES = 1 << 20
+BINARY_SUFFIXES = (".zip",)
 
 
 class Error(Exception):
@@ -47,20 +48,21 @@ def verify(path: pathlib.Path, entry: Entry) -> None:
     """Checks a file against its entry.
 
     Raises:
-        Error: If the file is empty, truncated, not valid UTF-8, or
-            has the wrong checksum.
+        Error: If the file is empty, truncated, has the wrong checksum, or
+            (except for binary archives) is not valid UTF-8.
     """
     size = path.stat().st_size
     if size == 0:
         raise Error(f"{entry.name} is empty")
     if size != entry.num_bytes:
         raise Error(f"{entry.name} size {size} != expected {entry.num_bytes}")
-    try:
-        with path.open(encoding="utf-8") as handle:
-            while handle.read(CHUNK_BYTES):
-                pass
-    except UnicodeDecodeError as error:
-        raise Error(f"{entry.name} is not valid utf-8") from error
+    if path.suffix not in BINARY_SUFFIXES:
+        try:
+            with path.open(encoding="utf-8") as handle:
+                while handle.read(CHUNK_BYTES):
+                    pass
+        except UnicodeDecodeError as error:
+            raise Error(f"{entry.name} is not valid utf-8") from error
     if digest(path) != entry.sha256:
         raise Error(f"{entry.name} sha256 mismatch")
 

@@ -20,6 +20,10 @@ dev = [
     "pytest-cov",
     "ruff",
 ]
+official = [
+    "pandas>=3.0.6",
+    "statsmodels>=0.15.0",
+]
 
 [build-system]
 requires = ["hatchling"]
