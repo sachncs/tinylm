@@ -1,0 +1,9 @@
+# Final Strict model (about 12.9M parameters): the Strict-Small decisions
+# scaled up, the full 10-epoch allowance, compiled. About 15 hours on the M3 Pro
+# (26k tokens/s measured). Interrupt-safe: re-running resumes from the last
+# checkpoint.
+base = "configs/strict.toml"
+
+[[run]]
+name = "strict10"
+set = ["train.epochs=10", "train.compile=true"]
