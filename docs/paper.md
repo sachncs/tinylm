@@ -45,6 +45,12 @@ Details and raw tables: `docs/findings/`. Screening was a 24-run
 Plackett-Burman design with dummy columns and a known-null factor to calibrate
 the noise.
 
+Official scores of the 4-epoch pair, seed 0 only (`official.json` in each run):
+baseline BLiMP 64.93 / supplement 57.51 / entity tracking 20.29; recency +
+exclusive attention 66.48 / 56.90 / 20.64. Seed 0 was the most favourable seed
+for the combination in the in-house comparison (+0.010; seeds 1 and 2: -0.002,
+-0.009), so the +1.55 BLiMP points are not evidence of a general gain.
+
 ## Limits, stated plainly
 - The architecture choices bought about 0.01 bits/char and no measurable BLiMP;
   most of the benchmark gain came from more epochs (0.657 at 4 epochs, 0.679 at
