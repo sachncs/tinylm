@@ -18,6 +18,8 @@ norm = "rms"
 activation = "gelu"
 tie_embeddings = true
 dropout = 0.0
+recency = true
+exclusive = [2, 3, 4, 5]
 
 [train]
 seq_len = 256

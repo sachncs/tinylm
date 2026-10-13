@@ -1,0 +1,7 @@
+# Final Strict-Small model: the frozen candidate with recency and exclusive
+# self attention (layers 2-5), the full 10-epoch allowance, compiled.
+base = "configs/small.toml"
+
+[[run]]
+name = "small10"
+set = ["train.epochs=10", "train.compile=true"]
