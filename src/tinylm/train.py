@@ -90,7 +90,7 @@ class Checkpoint:
         """
         if not path.is_file():
             raise FileNotFoundError(path)
-        raw = torch.load(path, map_location=device)
+        raw = torch.load(path, map_location=device, weights_only=True)
         try:
             saved = cls(**raw)
         except TypeError as error:

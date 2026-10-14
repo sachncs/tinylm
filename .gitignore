@@ -8,3 +8,11 @@ data/
 runs/
 checkpoints/
 external/
+
+.hypothesis/
+.DS_Store
+dist/
+build/
+*.egg-info/
+node_modules/
+.env

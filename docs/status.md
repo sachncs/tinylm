@@ -37,4 +37,4 @@ Details and limits: `docs/paper.md`.
 - A change that could move BLiMP by several points (a tuned hybrid
   causal/masked objective, or distillation from a teacher trained on the same
   data) has not been tried.
-- No licence file has been chosen.
+- Weights licence: the code is MIT; the weights follow the corpus terms, which have not been checked.

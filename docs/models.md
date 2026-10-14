@@ -83,4 +83,9 @@ The models were trained only on the BabyLM 2026 corpora, downloaded at pinned
 revisions and checksummed (`manifests/`). Exact duplicate lines between the
 training and development text were removed, and no benchmark text is used for
 training. The corpora are subject to their own terms; check them before
-reusing the weights. The repository does not yet carry a licence file.
+reusing the weights. The code is MIT-licensed. The Hugging Face cards of the
+BabyLM 2026 Strict and Strict-Small datasets declare `license: mit` (checked
+2026-10-14), but the corpora mix sources (BNC spoken, CHILDES, Gutenberg,
+OpenSubtitles) whose upstream terms the cards do not restate. The weights are
+therefore offered for research use; verify the upstream terms before any
+commercial use.
