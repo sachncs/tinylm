@@ -23,6 +23,7 @@
 | 8 CLAUDE.md written | pass | file in repo root |
 | 9 Gate in clean dev-only env (CI-equivalent) | pass | 475 passed, 99.64% |
 | 9 Wheel clean-venv import | pass | import ok on GIL 3.14 |
-| Weights licence | unresolved | HF cards say MIT (checked via API) but upstream sources (BNC, OpenSubtitles) not restated; docs say research use, verify before commercial use |
+| Weights licence positioned | pass | docs/weights-license.md: non-commercial research only; per-source terms from CHILDES ground rules, OTA/Lancaster BNC, OPUS pages |
+| Switchboard, BNC edition, Wikipedia, Gutenberg terms | unresolved | low/medium confidence in the table; not read from primary licence texts |
 | GitHub private vulnerability reporting | pass | API returns enabled=true |
 | PyPI publish | unresolved | not done: irreversible name claim and needs credentials; awaiting explicit go-ahead |

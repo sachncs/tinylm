@@ -6,6 +6,7 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Weights licence and per-source data terms (`docs/weights-license.md`): weights are non-commercial research use only.
 - MIT licence, contributing guide, security policy, code of conduct, citation
   file, issue and pull request templates, Dependabot configuration.
 - CI workflow running the quality gate on Linux and macOS and a wheel install

@@ -96,7 +96,9 @@ typed; atomic, versioned, checksummed files; atomic commits, tests first.
 
 The MultiLingual (22M) track and the full EWoK set were not run: both datasets
 are gated on Hugging Face and need an account that has accepted their terms.
-The code and documentation are released under the [MIT licence](LICENSE); the
-BabyLM corpora and the evaluation data have their own terms. See
+The code and documentation are released under the [MIT licence](LICENSE). The
+model **weights are for non-commercial research use only**, because the BabyLM
+training corpora include sources with non-commercial terms; see
+[Weights licence](docs/weights-license.md). See
 [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md) and the
 [changelog](CHANGELOG.md); to cite this work, use [CITATION.cff](CITATION.cff).
