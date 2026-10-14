@@ -1,5 +1,8 @@
 # tinylm
 
+[![CI](https://github.com/sachncs/tinylm/actions/workflows/ci.yml/badge.svg)](https://github.com/sachncs/tinylm/actions/workflows/ci.yml)
+[![Licence: MIT](https://img.shields.io/badge/licence-MIT-blue.svg)](LICENSE)
+
 Small language models (3.7M and 12.9M parameters) for the
 [BabyLM 2026](https://babylm.github.io) benchmark, built test-first, offline
 and reproducibly on one Apple-silicon laptop. The question: how small can a
@@ -69,7 +72,7 @@ a full `git bundle` to `~/Documents/Codex/backups/` after every commit.
 `Bench`, `Bootstrap`, `Experiment`, `Screen`, `Export`, `Official`, ...),
 `scripts/` thin command-line entry points, `configs/` experiment files,
 `tests/` unit, property-based and end-to-end tests, `docs/` findings,
-`plan.md` the plan, `docs/review.md` the engineering review,
+`docs/status.md` the plan, `docs/review.md` the engineering review,
 `docs/standards.md` how results must be reported.
 
 ## Conventions
@@ -93,5 +96,7 @@ typed; atomic, versioned, checksummed files; atomic commits, tests first.
 
 The MultiLingual (22M) track and the full EWoK set were not run: both datasets
 are gated on Hugging Face and need an account that has accepted their terms.
-The repository does not yet carry a licence file; the BabyLM corpora and the
-evaluation data have their own terms.
+The code and documentation are released under the [MIT licence](LICENSE); the
+BabyLM corpora and the evaluation data have their own terms. See
+[CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md) and the
+[changelog](CHANGELOG.md); to cite this work, use [CITATION.cff](CITATION.cff).

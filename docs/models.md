@@ -83,4 +83,6 @@ The models were trained only on the BabyLM 2026 corpora, downloaded at pinned
 revisions and checksummed (`manifests/`). Exact duplicate lines between the
 training and development text were removed, and no benchmark text is used for
 training. The corpora are subject to their own terms; check them before
-reusing the weights. The repository does not yet carry a licence file.
+reusing the weights. The code is MIT-licensed; the licence of the weights has
+not been separately decided and is inherited from the training corpora's terms,
+so treat the weights as research-use only until the corpus terms are checked.
