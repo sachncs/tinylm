@@ -1,7 +1,7 @@
 # CLAUDE.md
 
 tinylm: small language models for the BabyLM 2026 benchmark. Python 3.14
-(GIL build), managed with `uv`.
+(standard GIL build), managed with `uv`.
 
 ## Commands
 - `uv sync --group official` install locked deps; `./scripts/install.sh` enable hooks.
@@ -20,9 +20,10 @@ tinylm: small language models for the BabyLM 2026 benchmark. Python 3.14
 - Report a number only from a saved run, with its seed count.
 - Ask before push, tag, release, PyPI upload, or changing GitHub settings.
 - Harness files live in `harness/` (root `plan.md` was moved to `docs/status.md`).
-- `.python-version` is `3.14+gil`: plain `3.14` can resolve to the free-threaded
-  build on machines that have it; the old value was a platform-specific string
-  that broke Linux.
+- `.python-version` is `3.14`. The `3.14+gil` form is not downloadable by uv 0.13
+  (CI failed: "No download found"); and a platform-specific string breaks Linux.
+  On a machine with a free-threaded 3.14 installed, plain `3.14` may resolve to it:
+  create the venv with the standard build (`uv venv --python cpython-3.14.8-<platform>`).
 - The sdist must stay small: `[tool.hatch.build.targets.sdist]` is an allowlist,
   because the default included `site/node_modules` (11k files).
 - Run `uv build`, `uv pip install` of the wheel, and the link check after packaging edits.

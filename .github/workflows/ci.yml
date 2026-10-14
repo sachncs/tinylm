@@ -41,6 +41,6 @@ jobs:
       - run: uv build
       - name: Install the wheel in a clean environment
         run: |
-          uv venv --python 3.14+gil /tmp/smoke
+          uv venv --python 3.14 /tmp/smoke
           uv pip install --python /tmp/smoke/bin/python dist/*.whl
           /tmp/smoke/bin/python -c "import tinylm; print(tinylm.__file__)"
