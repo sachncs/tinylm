@@ -11,7 +11,7 @@
 | 3 Relative markdown links resolve | pass | script: broken = [] |
 | 3 CITATION.cff schema-validated | pass | `cffconvert --validate`: valid, schema 1.2.0 |
 | 4 ci.yml / dependabot.yml present | pass | files written; same script as local gate |
-| 4 ci.yml executed on GitHub | unresolved | not pushed (needs approval) |
+| 4 ci.yml executed on GitHub | pass | PR #1: ubuntu, macos gate and wheel smoke test all success after 3 fixes (python discovery, `+gil` unsupported by uv 0.13) |
 | 4 actionlint | pass | actionlint 1.7.12 on both workflows, no findings |
 | 4 Actions pinned by SHA | pass | SHAs looked up with `gh api`, tag kept as comment, both workflows |
 | 5 No personal paths/secrets in tracked files | pass | `git grep` empty |
@@ -24,4 +24,5 @@
 | 9 Gate in clean dev-only env (CI-equivalent) | pass | 475 passed, 99.64% |
 | 9 Wheel clean-venv import | pass | import ok on GIL 3.14 |
 | Weights licence | unresolved | HF cards say MIT (checked via API) but upstream sources (BNC, OpenSubtitles) not restated; docs say research use, verify before commercial use |
-| GitHub settings, PyPI publish | unresolved | out of scope without approval |
+| GitHub private vulnerability reporting | pass | API returns enabled=true |
+| PyPI publish | unresolved | not done: irreversible name claim and needs credentials; awaiting explicit go-ahead |

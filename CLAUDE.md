@@ -29,3 +29,4 @@ tinylm: small language models for the BabyLM 2026 benchmark. Python 3.14
 - Run `uv build`, `uv pip install` of the wheel, and the link check after packaging edits.
 - Pin GitHub Actions by commit SHA only when the SHA was looked up, never invented;
   Dependabot keeps tags current.
+- Run new workflows on GitHub before calling CI done: local uv differed from the runner (uv 0.13 lacks `+gil`; `uv build` does not auto-install Python, so run `uv python install`).
