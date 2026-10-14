@@ -37,7 +37,7 @@ subset only, not the full set, whose licence terms must be accepted on Hugging
 Face. The reading scores are the pipeline's own eye-tracking and self-paced
 reading figures, run with `python -m evaluation_pipeline.reading.run`; both
 models are near zero, i.e. no measurable alignment with human reading times.
-GLUE-style fine-tuning tasks have not been run. A rerun scored BLiMP 67.40 against 67.39
+ A rerun scored BLiMP 67.40 against 67.39
 earlier, so the official scorer is not bit-for-bit repeatable at the second
 decimal.
 
@@ -60,6 +60,28 @@ Going from 3.7M to 12.9M parameters (and 10x the data) raised official BLiMP by
 7.4 points and the supplement by 3.2, but entity tracking fell from 17.88 to
 15.75; the latter is a single run and was not investigated. The in-house scorer
 read 0.3 and 0.6 points above the official one here.
+
+## GLUE-style fine-tuning (official pipeline, validation accuracy)
+Each task fine-tunes the final model once (10 epochs, lr 3e-5, batch 32, sequence
+256, seed 42, last-token pooling; `scripts/glue.py`). The majority baseline is
+the accuracy of always predicting the commonest validation label.
+| Task | Majority baseline | Strict-Small 3.7M | Strict 12.9M |
+|---|---|---|---|
+| BOOLQ | 0.640 | 0.643 | 0.675 |
+| MNLI | 0.357 | 0.549 | 0.582 |
+| MRPC | 0.681 | 0.740 (F1 0.826) | 0.725 (F1 0.818) |
+| MULTIRC | 0.575 | 0.566 | 0.589 |
+| QQP | 0.628 | 0.745 (F1 0.654) | 0.760 (F1 0.673) |
+| RTE | 0.540 | 0.576 | 0.698 |
+| WSC | 0.615 | 0.673 | 0.596 |
+| Mean accuracy | 0.577 | 0.642 | 0.661 |
+
+MNLI, QQP and MRPC are clearly above the baseline for both models. BoolQ and
+MultiRC are barely above it, and WSC for the 12.9M model (0.596) is *below* its
+baseline (0.615). The small tasks (RTE, WSC, MRPC) have a few hundred
+validation items and one fine-tuning seed, so differences of several points
+there are within noise; the larger model's lower WSC and MRPC scores should not
+be read as a real regression.
 
 ## What was decided and on what evidence (Strict-Small, 4 epochs, 3 seeds per arm)
 | Choice | Evidence |
@@ -100,5 +122,5 @@ for the combination in the in-house comparison (+0.010; seeds 1 and 2: -0.002,
 ## Pending
 - MultiLingual (22M): blocked on gated Hugging Face data (needs `hf auth login`
   and acceptance of the dataset terms); not trained.
-- Not run: full EWoK (licence), GLUE-style fine-tuning tasks; seed replicates and
+- Not run: full EWoK (licence); GLUE used a single fine-tuning seed; seed replicates and
   ablations of the final recipe at 12.9M.
