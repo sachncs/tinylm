@@ -1,0 +1,55 @@
+---
+import '../styles/site.css';
+
+interface Props {
+	title: string;
+	description?: string;
+}
+const { title, description = 'Small language models for the BabyLM 2026 benchmark.' } = Astro.props;
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+const nav = [
+	['Models', 'models'],
+	['Architecture', 'architecture'],
+	['Results', 'paper'],
+	['Reproduce', 'reproduce'],
+	['Screen', 'findings/screen'],
+	['Attention', 'findings/attention'],
+	['Leakage', 'findings/leakage'],
+	['Review', 'review'],
+	['Standards', 'standards'],
+];
+const here = Astro.url.pathname;
+---
+
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta name="description" content={description} />
+		<link rel="icon" type="image/svg+xml" href={`${base}/favicon.svg`} />
+		<title>{title}</title>
+	</head>
+	<body>
+		<header class="top">
+			<div class="bar">
+				<a class="brand" href={`${base}/`}>tinylm</a>
+				<nav>
+					{nav.map(([label, slug]) => (
+						<a
+							href={`${base}/${slug}/`}
+							aria-current={here === `${base}/${slug}/` ? 'page' : undefined}>{label}</a>
+					))}
+					<a href="https://github.com/sachncs/tinylm">GitHub</a>
+				</nav>
+			</div>
+		</header>
+		<main><slot /></main>
+		<footer>
+			<div>
+				tinylm: small language models for the BabyLM 2026 benchmark. Every number on this site was measured in the
+				repository; negative results are reported as measured.
+			</div>
+		</footer>
+	</body>
+</html>

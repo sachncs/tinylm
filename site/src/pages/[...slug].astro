@@ -1,0 +1,20 @@
+---
+import { getCollection, render } from 'astro:content';
+import Base from '../layouts/Base.astro';
+
+export async function getStaticPaths() {
+	const docs = await getCollection('docs');
+	return docs.map((entry) => ({ params: { slug: entry.id }, props: { entry } }));
+}
+
+const { entry } = Astro.props;
+const { Content } = await render(entry);
+const heading = /^#\s+(.+)$/m.exec(entry.body ?? '');
+const title = `${heading ? heading[1] : entry.id} | tinylm`;
+---
+
+<Base title={title}>
+	<article>
+		<Content />
+	</article>
+</Base>

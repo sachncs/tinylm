@@ -1,0 +1,96 @@
+---
+import Base from '../layouts/Base.astro';
+
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+const release = 'https://github.com/sachncs/tinylm/releases/download/v0.1.0';
+---
+
+<Base title="tinylm | small language models for BabyLM 2026">
+	<section class="hero">
+		<h1>tinylm</h1>
+		<p class="lead">
+			How small can a language model be and still be accurate and precise? Two models of 3.7M and 12.9M
+			parameters for the BabyLM 2026 benchmark, built test-first, offline and reproducibly on one Apple-silicon
+			laptop.
+		</p>
+	</section>
+
+	<div class="cards">
+		<div class="card">
+			<h3>Strict-Small, 3.7M parameters</h3>
+			<div class="big">67.4</div>
+			<p>official BLiMP, 10 epochs of 14.4M tokens, 45 minutes of training.</p>
+		</div>
+		<div class="card">
+			<h3>Strict, 12.9M parameters</h3>
+			<div class="big">74.8</div>
+			<p>official BLiMP, 10 epochs of 137.7M tokens, 16 hours of training.</p>
+		</div>
+		<div class="card">
+			<h3>Target</h3>
+			<div class="big">not reached</div>
+			<p>The goal was 90. The best published Strict-Small result is about 80.</p>
+		</div>
+	</div>
+
+	<p class="note">
+		These models are research artefacts and trail the best BabyLM systems. Each size has a single final run, so the
+		scores come without seed replicates.
+	</p>
+
+	<h2>Scores</h2>
+	<p>Official evaluation pipeline, accuracy in percent.</p>
+	<table>
+		<thead>
+			<tr><th>Task</th><th>Small 3.7M</th><th>Strict 12.9M</th></tr>
+		</thead>
+		<tbody>
+			<tr><td>BLiMP (filtered)</td><td>67.4</td><td>74.8</td></tr>
+			<tr><td>BLiMP supplement</td><td>57.0</td><td>60.2</td></tr>
+			<tr><td>Entity tracking</td><td>17.9</td><td>15.8</td></tr>
+			<tr><td>COMPS</td><td>52.5</td><td>55.8</td></tr>
+			<tr><td>EWoK (fast subset)</td><td>53.9</td><td>54.7</td></tr>
+			<tr><td>GLUE mean (single run per task)</td><td>64.2</td><td>66.1</td></tr>
+		</tbody>
+	</table>
+	<p>
+		The full tables with majority-class baselines and limits are on the <a href={`${base}/paper/`}>Results</a> page.
+	</p>
+
+	<h2>What the experiments found</h2>
+	<ul>
+		<li>A 24-run screen of 20 factors, with dummy columns to estimate noise, then a 32-run factorial on the top five.</li>
+		<li>RMSNorm beats Dynamic Tanh, and Dynamic Tanh with AdamW collapses to chance.</li>
+		<li>Muon beats AdamW; a 16k vocabulary beats 4k; dropout 0.1 hurts.</li>
+		<li>A learned recency penalty and exclusive self attention each lower bits per character by about 0.005 on every seed, with no clear BLiMP change.</li>
+		<li>Cross attention to learned memory slots does not pay for its parameters.</li>
+		<li>Most of the benchmark gain came from more epochs and more parameters, not from architecture.</li>
+	</ul>
+	<p>See <a href={`${base}/findings/screen/`}>Screen</a> and <a href={`${base}/findings/attention/`}>Attention</a>.</p>
+
+	<h2>Download the weights</h2>
+	<table>
+		<thead>
+			<tr><th>Model</th><th>Size</th><th>Archive</th></tr>
+		</thead>
+		<tbody>
+			<tr><td>tinylm-small-3.7M</td><td>14 MB</td><td><a href={`${release}/tinylm-small-3.7M.tar.gz`}>tinylm-small-3.7M.tar.gz</a></td></tr>
+			<tr><td>tinylm-strict-12.9M</td><td>48 MB</td><td><a href={`${release}/tinylm-strict-12.9M.tar.gz`}>tinylm-strict-12.9M.tar.gz</a></td></tr>
+		</tbody>
+	</table>
+	<p>Checksums are in <a href={`${release}/SHA256SUMS`}>SHA256SUMS</a>. Usage is on the <a href={`${base}/models/`}>Models</a> page.</p>
+
+	<h2>Engineering</h2>
+	<p>
+		Pinned and checksummed data, no network at training time, atomic and fingerprinted checkpoints with exact
+		resume, strict types, warnings as errors, and about 480 tests including negative and property-based cases. A
+		review of the project's own engineering, with every finding and its fix, is on the
+		<a href={`${base}/review/`}>Review</a> page.
+	</p>
+
+	<h2>Not done</h2>
+	<p>
+		The MultiLingual 22M track and the full EWoK set were not run: both datasets are gated on Hugging Face and
+		need an account that has accepted their terms.
+	</p>
+</Base>

@@ -1,7 +1,7 @@
 # Plan: rebuild, store the data offline and efficiently, then search every parameter by screening design
 
 ## Context
-The previous project folder (`/Users/sachin/Documents/Codex/github-repos/new`, ~70 commits) was deleted on 2026-10-12 17:54 by something outside this session; nothing was recoverable. The user said "start from scratch". The folder has been recreated: 12 commits, all tests green, a post-commit hook writes `git bundle --all` to `~/Documents/Codex/backups/tinylm.bundle` after every commit (protects against a repeat).
+The previous project folder (~70 commits) was deleted on 2026-10-12 17:54 by something outside this session; nothing was recoverable. The user said "start from scratch". The folder has been recreated: 12 commits, all tests green, a post-commit hook writes `git bundle --all` to `~/Documents/Codex/backups/tinylm.bundle` after every commit (protects against a repeat).
 
 Rebuilt so far (tested, committed): scaffold on standard CPython 3.14.8 (GIL build), seeding, `model.py` (local/global attention, ReLU/GELU, RMSNorm/Dynamic Tanh, dropout, untied head, codebook pyramid, `local_window` override, 50M budget guard), ledger (10-epoch cap), packing, manifest, cleaning, deterministic tokenizer, prepare (BOS separator), hybrid objective, optimizers (AdamW, Muon+AdamW), EMA. Uncommitted: `tests/test_store.py` (written, red).
 

@@ -1,0 +1,71 @@
+:root {
+	--bg: #ffffff;
+	--fg: #1b1f24;
+	--muted: #5b6672;
+	--line: #d8dee4;
+	--accent: #0b5fd4;
+	--code: #f3f5f7;
+	--warn: #8a4b00;
+	color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+	:root {
+		--bg: #0f1419;
+		--fg: #e6e9ec;
+		--muted: #9aa5b1;
+		--line: #2a323b;
+		--accent: #6aa7ff;
+		--code: #1a2129;
+		--warn: #f0b566;
+	}
+}
+* { box-sizing: border-box; }
+html { font-size: 17px; }
+body {
+	margin: 0;
+	background: var(--bg);
+	color: var(--fg);
+	font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+	line-height: 1.6;
+}
+a { color: var(--accent); }
+header.top {
+	border-bottom: 1px solid var(--line);
+	position: sticky;
+	top: 0;
+	background: var(--bg);
+	z-index: 2;
+}
+header.top .bar {
+	max-width: 62rem;
+	margin: 0 auto;
+	padding: 0.7rem 1rem;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.4rem 1.2rem;
+	align-items: center;
+}
+header.top .brand { font-weight: 700; text-decoration: none; color: var(--fg); margin-right: 0.6rem; }
+header.top nav { display: flex; flex-wrap: wrap; gap: 0.3rem 1rem; font-size: 0.92rem; }
+header.top nav a { color: var(--muted); text-decoration: none; }
+header.top nav a:hover, header.top nav a[aria-current] { color: var(--accent); }
+main { max-width: 62rem; margin: 0 auto; padding: 1.5rem 1rem 4rem; }
+article { max-width: 46rem; }
+h1 { font-size: 2rem; line-height: 1.2; margin-top: 0.5rem; }
+h2 { margin-top: 2.2rem; border-bottom: 1px solid var(--line); padding-bottom: 0.25rem; }
+h3 { margin-top: 1.6rem; }
+code { background: var(--code); padding: 0.1em 0.3em; border-radius: 4px; font-size: 0.88em; }
+pre { background: var(--code); padding: 0.9rem 1rem; border-radius: 6px; overflow-x: auto; line-height: 1.4; }
+pre code { background: none; padding: 0; }
+table { border-collapse: collapse; width: 100%; font-size: 0.92rem; display: block; overflow-x: auto; }
+th, td { border: 1px solid var(--line); padding: 0.4rem 0.6rem; text-align: left; vertical-align: top; }
+th { background: var(--code); }
+.hero p.lead { font-size: 1.15rem; color: var(--muted); max-width: 40rem; }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 1rem; margin: 1.5rem 0; }
+.card { border: 1px solid var(--line); border-radius: 8px; padding: 1rem 1.1rem; }
+.card h3 { margin: 0 0 0.3rem; font-size: 1.05rem; }
+.card .big { font-size: 1.9rem; font-weight: 700; }
+.card p { margin: 0.3rem 0; color: var(--muted); font-size: 0.93rem; }
+.note { border-left: 4px solid var(--warn); padding: 0.4rem 1rem; background: var(--code); border-radius: 0 6px 6px 0; }
+footer { border-top: 1px solid var(--line); color: var(--muted); font-size: 0.88rem; }
+footer div { max-width: 62rem; margin: 0 auto; padding: 1rem; }

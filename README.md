@@ -1,13 +1,36 @@
 # tinylm
 
-Small language models (4M to 22M parameters) for the BabyLM 2026 benchmark,
-built test-first, offline, and reproducible. The goal is the smallest model
-that is accurate and precise, found by measurement rather than assumption.
+Small language models (3.7M and 12.9M parameters) for the
+[BabyLM 2026](https://babylm.github.io) benchmark, built test-first, offline
+and reproducibly on one Apple-silicon laptop. The question: how small can a
+model be and still be accurate and precise, found by measurement rather than
+assumption.
+
+**Documentation site:** https://sachncs.github.io/tinylm
+
+## Results
+
+| Model | Parameters | Official BLiMP | Supplement | COMPS | EWoK (fast) | GLUE mean |
+|---|---|---|---|---|---|---|
+| `tinylm-small-3.7M` (Strict-Small, 10 epochs) | 3.70M | 67.4 | 57.0 | 52.5 | 53.9 | 64.2 |
+| `tinylm-strict-12.9M` (Strict, 10 epochs) | 12.92M | 74.8 | 60.2 | 55.8 | 54.7 | 66.1 |
+
+These are well below the best published BabyLM systems (about 80 BLiMP on
+Strict-Small); the 90 this project aimed for was **not reached**. Single final
+run per size, no seed replicates. Weights are release assets (see
+[Models](docs/models.md)). Everything measured, including the negative
+results, is in [docs/paper.md](docs/paper.md).
+
+What the experiments found (4 epochs, 3 seeds per arm unless noted): RMSNorm
+beats Dynamic Tanh, Muon beats AdamW, a 16k vocabulary beats 4k, dropout 0.1
+hurts, a recency penalty and exclusive self attention each lower bits per
+character by about 0.005 with no clear BLiMP effect, and cross attention to
+memory slots does not pay for its parameters.
 
 ## Setup
 
 ```sh
-uv sync                    # Python 3.14.8 (standard, GIL build), locked deps
+uv sync --group official   # Python 3.14.8 (standard, GIL build), locked deps
 ./scripts/install.sh       # enables the pre-commit gate and the external backup
 ```
 
@@ -50,3 +73,18 @@ Python 3.14 only; Google style; names are judged in local context (no
 `prepare.prepare`, no `TokenStore`); no leading underscores; frozen
 dataclasses for every record that crosses a boundary; failures are loud and
 typed; atomic, versioned, checksummed files; atomic commits, tests first.
+
+## Documentation
+
+[Models](docs/models.md) (usage, scores, data notes) ·
+[Architecture](docs/architecture.md) · [Results](docs/paper.md) ·
+[Reproducing](docs/reproduce.md) · [Screen](docs/findings/screen.md) ·
+[Attention](docs/findings/attention.md) · [Review](docs/review.md) ·
+[Reporting standards](docs/standards.md)
+
+## Status and licence
+
+The MultiLingual (22M) track and the full EWoK set were not run: both datasets
+are gated on Hugging Face and need an account that has accepted their terms.
+The repository does not yet carry a licence file; the BabyLM corpora and the
+evaluation data have their own terms.
