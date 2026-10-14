@@ -26,6 +26,7 @@ jobs:
       - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
         with:
           enable-cache: true
+      - run: uv python install
       - run: uv sync --locked
       - run: ./scripts/gate.sh
 
@@ -36,12 +37,7 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
-      - run: |
-          uv --version
-          uv python list --only-downloads | grep -E ' 3\.14' || true
-          uv python list --only-downloads | head -5
-          uv python find 3.14+gil || true
-          uv python find 3.14 || true
+      - run: uv python install
       - run: uv build
       - name: Install the wheel in a clean environment
         run: |
