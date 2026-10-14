@@ -37,4 +37,4 @@ Details and limits: `docs/paper.md`.
 - A change that could move BLiMP by several points (a tuned hybrid
   causal/masked objective, or distillation from a teacher trained on the same
   data) has not been tried.
-- Weights licence: the code is MIT; the weights follow the corpus terms, which have not been checked.
+- Weights licence: decided, non-commercial research use only (`docs/weights-license.md`). Lifting it needs every source cleared or a retrain on commercial-use data. Switchboard and BNC edition terms remain unconfirmed.
