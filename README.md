@@ -15,8 +15,10 @@ assumption.
 | `tinylm-small-3.7M` (Strict-Small, 10 epochs) | 3.70M | 67.4 | 57.0 | 52.5 | 53.9 | 64.2 |
 | `tinylm-strict-12.9M` (Strict, 10 epochs) | 12.92M | 74.8 | 60.2 | 55.8 | 54.7 | 66.1 |
 
-These are well below the best published BabyLM systems (about 80 BLiMP on
-Strict-Small); the 90 this project aimed for was **not reached**. Single final
+They are above the organisers' GPT-2 baseline as listed (BLiMP 64.4 and 73.4,
+124M parameters; not rerun here, so indicative) and well below the best
+published BabyLM systems (about 80 BLiMP on Strict-Small); the 90 this project
+aimed for was **not reached**. Single final
 run per size, no seed replicates. Weights are release assets (see
 [Models](docs/models.md)). Everything measured, including the negative
 results, is in [docs/paper.md](docs/paper.md).
@@ -45,7 +47,10 @@ uv sync --group official   # Python 3.14.8 (standard, GIL build), locked deps
 | A queue of variants | `uv run python scripts/batch.py configs/<queue>.toml` |
 | 24-run factor screen | `uv run python scripts/screen.py run` then `... analyse` |
 | Summary table | `uv run python scripts/table.py runs/screen` |
-| Official benchmark scores of a finished run | `uv run python scripts/official.py runs/screen/<run>` |
+| Official benchmark scores of a finished run (BLiMP, supplement, entity tracking, COMPS) | `uv run python scripts/official.py runs/final/<run>` |
+| GLUE fine-tuning of a finished run | `uv run python scripts/glue.py runs/final/<run>` |
+| Recall, superposition probes and layer diagnostics | `uv run python scripts/probe.py runs/final/<run>` |
+| Final models | `uv run python scripts/batch.py configs/final.toml` and `configs/finalstrict.toml` |
 | Paired comparison of two runs | `uv run python scripts/compare.py runs/a runs/b blimp_fast` |
 
 After `data.py` nothing touches the network: `Offline` blocks sockets and the
@@ -79,7 +84,8 @@ typed; atomic, versioned, checksummed files; atomic commits, tests first.
 [Models](docs/models.md) (usage, scores, data notes) ·
 [Architecture](docs/architecture.md) · [Results](docs/paper.md) ·
 [Reproducing](docs/reproduce.md) · [Screen](docs/findings/screen.md) ·
-[Attention](docs/findings/attention.md) · [Review](docs/review.md) ·
+[Attention](docs/findings/attention.md) ·
+[Probes](docs/findings/probes.md) · [Review](docs/review.md) ·
 [Reporting standards](docs/standards.md)
 
 ## Status and licence

@@ -47,15 +47,6 @@ class Design:
         shifts = [base[-i:] + base[:-i] for i in range(len(base))]
         return cls((*shifts, (-1,) * len(base)))
 
-    def foldover(self) -> Design:
-        """The design plus its mirror image.
-
-        Adding every run with all levels reversed removes the aliasing of
-        main effects with two-factor interactions.
-        """
-        mirrored = tuple(tuple(-level for level in row) for row in self.rows)
-        return Design((*self.rows, *mirrored))
-
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class Factor:

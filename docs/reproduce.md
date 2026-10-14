@@ -32,6 +32,8 @@ fingerprint and refused on resume.
 ```sh
 uv run python scripts/official.py runs/final/small10   # BLiMP, supplement, entity tracking, COMPS
 uv run python scripts/glue.py runs/final/small10       # GLUE fine-tuning
+uv run python scripts/probe.py runs/final/small10      # recall, superposition, layer diagnostics
+uv run python scripts/interval.py runs/final/small10   # 95% intervals on the full BLiMP sets
 uv run python scripts/compare.py runs/a runs/b blimp_fast   # paired bootstrap
 ```
 
@@ -49,7 +51,7 @@ The findings are in [Screen](findings/screen.md) and [Attention](findings/attent
 ## Quality gate
 
 `./scripts/gate.sh` runs the formatter check, lint, strict type checking and
-the test suite (warnings are errors, coverage floor 97%). About 480 tests cover
+the test suite (warnings are errors, coverage floor 97%). About 475 tests cover
 unit, property-based and end-to-end behaviour, including negative cases.
 
 ## Hardware notes

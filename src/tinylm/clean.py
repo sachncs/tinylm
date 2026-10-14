@@ -85,11 +85,6 @@ def recase(text: str) -> str:
     return lowered[:first] + lowered[first].upper() + lowered[first + 1 :]
 
 
-def untag(line: str) -> str:
-    """Removes a leading CHILDES or Switchboard speaker tag, if present."""
-    return SPEAKER_TAG.sub("", line, count=1)
-
-
 def apply(
     lines: collections.abc.Iterable[str], source: str, options: Options
 ) -> collections.abc.Iterator[str]:

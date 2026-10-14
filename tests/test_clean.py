@@ -35,11 +35,11 @@ def test_repair_case(text: str, expected: str):
     assert clean.recase(text) == expected
 
 
-def test_speaker_tags():
-    assert clean.untag("*MOT:\tmore what?") == "more what?"
-    assert clean.untag("A:\tYeah, uh,") == "Yeah, uh,"
-    assert clean.untag("Right.") == "Right."
-    assert clean.untag("Note: this matters") == "Note: this matters"
+def test_only_real_speaker_tags_are_removed():
+    assert lines(["*MOT:\tmore what?"], "childes") == ["more what?"]
+    assert lines(["A:\tYeah, uh,"], "switchboard") == ["Yeah, uh,"]
+    assert lines(["Note: this matters"], "childes") == ["Note: this matters"]
+    assert lines(["Right."], "switchboard") == ["Right."]
 
 
 def test_childes_pipeline_and_keep_tags_option():

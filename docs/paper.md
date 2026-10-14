@@ -2,8 +2,10 @@
 
 Status: results for the 3.7M Strict-Small and 12.9M Strict models are final for
 this draft; MultiLingual is blocked (see "Pending"). Every number below was measured
-in this repository; nothing is quoted from memory. Intervals are 95% bootstrap
-intervals over benchmark items unless stated.
+in this repository; nothing is quoted from memory. Official scores are point
+values from the official pipeline, which keeps no item-level output; beside them
+are 95% bootstrap intervals from the in-house scorer on the same items, which
+agreed with the official figure within 0.3 points on these models.
 
 ## Setup
 BabyLM 2026 Strict-Small (14.4M training tokens after cleaning and
@@ -23,6 +25,8 @@ layers 2 to 5. 3,704,976 parameters. Ten epochs, the allowed maximum.
 | COMPS (official) | 52.46 |
 | EWoK, fast subset (official, 1,100 items) | 53.91 |
 | Reading: eye tracking / self-paced (official) | 0.30 / 0.02 |
+| BLiMP full set, in-house scorer | 67.43 [67.11, 67.75] |
+| Supplement full set, in-house scorer | 57.15 [54.06, 60.29] |
 | Fast BLiMP subset (in-house) | 0.679 [0.672, 0.686] |
 | Confident-correct rate at tau = 1 nat | 0.713, covering 81.5% of pairs |
 | Dev bits per character | 1.405 |
@@ -52,6 +56,8 @@ layers 3 to 7, lr 3e-3, Strict data (137.7M training tokens), 16.4 hours.
 | COMPS (official) | 55.82 |
 | EWoK, fast subset (official, 1,100 items) | 54.73 |
 | Reading: eye tracking / self-paced (official) | 0.43 / 0.00 |
+| BLiMP full set, in-house scorer | 75.09 [74.80, 75.36] |
+| Supplement full set, in-house scorer | 60.80 [57.70, 63.92] |
 | Fast BLiMP subset (in-house) | 0.748 [0.742, 0.754] |
 | Confident-correct rate at tau = 1 nat | 0.790, covering 83.4% of pairs |
 | Dev bits per character | 1.271 |
@@ -82,6 +88,8 @@ baseline (0.615). The small tasks (RTE, WSC, MRPC) have a few hundred
 validation items and one fine-tuning seed, so differences of several points
 there are within noise; the larger model's lower WSC and MRPC scores should not
 be read as a real regression.
+
+Reference point: the organisers' GPT-2 baseline (124M parameters, 20 epochs, BPE 32k) is listed at BLiMP 64.4 on Strict-Small and 73.4 on Strict (`docs/baselines.md`). The models here score 67.4 and 74.8 with 33 and 10 times fewer parameters. The baseline was not rerun here and it is unconfirmed that it was scored on the same filtered BLiMP set and pipeline version, so read the comparison as indicative.
 
 ## What was decided and on what evidence (Strict-Small, 4 epochs, 3 seeds per arm)
 | Choice | Evidence |

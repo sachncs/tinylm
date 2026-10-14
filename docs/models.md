@@ -10,7 +10,9 @@ Hugging Face model folder that loads with `trust_remote_code=True`.
 | `tinylm-small-3.7M` | 3,704,976 | BabyLM Strict-Small (14.4M tokens) | 10 | 67.4 |
 | `tinylm-strict-12.9M` | 12,916,524 | BabyLM Strict (137.7M tokens) | 10 | 74.8 |
 
-These scores are far below the best published BabyLM results (about 80 on
+These scores are above the organisers' GPT-2 baseline as listed in the leaderboard
+repository (64.4 and 73.4 BLiMP with 124M parameters; not rerun here, so
+indicative), far below the best published BabyLM results (about 80 on
 Strict-Small), and well short of the 90 this project hoped for. See
 [Results](paper.md) for every benchmark with its limits.
 

@@ -209,11 +209,3 @@ class TestFactorial:
             Factorial(factors(4)).analyse([1.0] * 5)
         with pytest.raises(ValueError, match="finite"):
             Factorial(factors(4)).analyse([float("inf")] + [1.0] * 15)
-
-
-def test_foldover_doubles_the_runs_and_keeps_the_design_orthogonal():
-    folded = Design.pb24().foldover()
-    matrix = torch.tensor(folded.rows, dtype=torch.float32)
-    assert matrix.shape == (48, 23)
-    assert torch.equal(matrix[24:], -matrix[:24])
-    assert torch.equal(matrix.T @ matrix, 48 * torch.eye(23))
