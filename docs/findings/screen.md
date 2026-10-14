@@ -39,7 +39,8 @@ design). The stricter estimate is used below.
 - Many arms sit at chance on BLiMP (about 0.50), which is why bits/char is
   the primary response.
 - Main effects only: two-factor interactions are aliased. The factorial in
-  `scripts/follow.py` (norm, optimizer, vocab, seq_len, lr) is the check.
+  `scripts/follow.py` (norm, optimizer, vocab, seq_len, lr) is the check; its
+  result is in [Factorial](factorial.md).
 
 ## Pareto front (accuracy, precision, size), single seeds
 x23 1.34M BLiMP 0.582 / precision 0.600; x06 3.70M 0.589 / 0.612;

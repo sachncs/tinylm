@@ -43,7 +43,7 @@ uv sync --group official   # Python 3.14.8 (standard, GIL build), locked deps
 | Download pinned data once (checksummed) | `uv run python scripts/data.py` |
 | Build offline token stores | `uv run python scripts/build.py` |
 | Check benchmark leakage | `uv run python scripts/leak.py data/strict data/evals/evaluation_data/full_eval/blimp_filtered` |
-| One experiment | `uv run python scripts/run.py configs/proxy.toml --name v --set train.lr=0.003` |
+| One experiment | `uv run python scripts/run.py configs/small.toml --name v --set train.epochs=1` |
 | A queue of variants | `uv run python scripts/batch.py configs/<queue>.toml` |
 | 24-run factor screen | `uv run python scripts/screen.py run` then `... analyse` |
 | Summary table | `uv run python scripts/table.py runs/screen` |
@@ -84,6 +84,7 @@ typed; atomic, versioned, checksummed files; atomic commits, tests first.
 [Models](docs/models.md) (usage, scores, data notes) ·
 [Architecture](docs/architecture.md) · [Results](docs/paper.md) ·
 [Reproducing](docs/reproduce.md) · [Screen](docs/findings/screen.md) ·
+[Factorial](docs/findings/factorial.md) ·
 [Attention](docs/findings/attention.md) ·
 [Probes](docs/findings/probes.md) · [Review](docs/review.md) ·
 [Reporting standards](docs/standards.md)

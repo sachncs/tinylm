@@ -46,7 +46,7 @@ uv run python scripts/compare.py runs/a runs/b blimp_fast   # paired bootstrap
 | Dropout, recency, exclusive and cross attention (4 epochs, 3 seeds) | `configs/confirm.toml`, `recency.toml`, `exclusive.toml`, `cross.toml` |
 | Large learning rate and batch | `configs/rate.toml` |
 
-The findings are in [Screen](findings/screen.md) and [Attention](findings/attention.md).
+The findings are in [Screen](findings/screen.md), [Factorial](findings/factorial.md) and [Attention](findings/attention.md).
 
 ## Quality gate
 
