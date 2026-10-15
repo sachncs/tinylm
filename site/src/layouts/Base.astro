@@ -9,16 +9,9 @@ const { title, description = 'Small language models for the BabyLM 2026 benchmar
 const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 const nav = [
 	['Models', 'models'],
-	['Architecture', 'architecture'],
 	['Results', 'paper'],
 	['Reproduce', 'reproduce'],
-	['Screen', 'findings/screen'],
-	['Factorial', 'findings/factorial'],
-	['Attention', 'findings/attention'],
-	['Probes', 'findings/probes'],
-	['Leakage', 'findings/leakage'],
-	['Review', 'review'],
-	['Standards', 'standards'],
+	['Docs', 'architecture'],
 ];
 const here = Astro.url.pathname;
 ---
@@ -35,22 +28,26 @@ const here = Astro.url.pathname;
 	<body>
 		<header class="top">
 			<div class="bar">
-				<a class="brand" href={`${base}/`}>tinylm</a>
+				<a class="brand" href={`${base}/`} aria-label="tinylm home">
+					<svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><path d="M6 7.5h20M10 4v6.5M22 4v6.5M8 13h16v11.5H8zM12 17.5h.01M20 17.5h.01M13 21h6" /></svg>
+					<span>tinylm</span>
+				</a>
 				<nav>
 					{nav.map(([label, slug]) => (
 						<a
 							href={`${base}/${slug}/`}
 							aria-current={here === `${base}/${slug}/` ? 'page' : undefined}>{label}</a>
 					))}
-					<a href="https://github.com/sachncs/tinylm">GitHub</a>
+					<a class="nav-github" href="https://github.com/sachncs/tinylm">GitHub <span aria-hidden="true">↗</span></a>
 				</nav>
 			</div>
 		</header>
 		<main><slot /></main>
 		<footer>
-			<div>
-				tinylm: small language models for the BabyLM 2026 benchmark. Every number on this site was measured in the
-				repository; negative results are reported as measured.
+			<div class="footer-inner">
+				<div class="footer-brand"><span class="status-dot"></span> tinylm <span class="footer-muted">· open research</span></div>
+				<div class="footer-links"><a href="https://github.com/sachncs/tinylm">Source</a><a href="https://github.com/sachncs/tinylm/blob/main/LICENSE">MIT licence</a><a href="https://github.com/sachncs/tinylm/blob/main/CONTRIBUTING.md">Contribute</a></div>
+				<p>Small models, measured honestly. Negative results included.</p>
 			</div>
 		</footer>
 	</body>

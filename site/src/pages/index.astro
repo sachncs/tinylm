@@ -1,96 +1,14 @@
 ---
 import Base from '../layouts/Base.astro';
-
 const base = import.meta.env.BASE_URL.replace(/\/$/, '');
-const release = 'https://github.com/sachncs/tinylm/releases/download/v0.1.0';
 ---
-
-<Base title="tinylm | small language models for BabyLM 2026">
-	<section class="hero">
-		<h1>tinylm</h1>
-		<p class="lead">
-			How small can a language model be and still be accurate and precise? Two models of 3.7M and 12.9M
-			parameters for the BabyLM 2026 benchmark, built test-first, offline and reproducibly on one Apple-silicon
-			laptop.
-		</p>
-	</section>
-
-	<div class="cards">
-		<div class="card">
-			<h3>Strict-Small, 3.7M parameters</h3>
-			<div class="big">67.4</div>
-			<p>official BLiMP, 10 epochs of 14.4M tokens, 45 minutes of training.</p>
-		</div>
-		<div class="card">
-			<h3>Strict, 12.9M parameters</h3>
-			<div class="big">74.8</div>
-			<p>official BLiMP, 10 epochs of 137.7M tokens, 16 hours of training.</p>
-		</div>
-		<div class="card">
-			<h3>Target</h3>
-			<div class="big">not reached</div>
-			<p>The goal was 90. The organisers' GPT-2 baseline (124M) is listed at 64.4 and 73.4; the best published Strict-Small result is about 80.</p>
-		</div>
-	</div>
-
-	<p class="note">
-		These models are research artefacts and trail the best BabyLM systems. Each size has a single final run, so the
-		scores come without seed replicates.
-	</p>
-
-	<h2>Scores</h2>
-	<p>Official evaluation pipeline, accuracy in percent.</p>
-	<table>
-		<thead>
-			<tr><th>Task</th><th>Small 3.7M</th><th>Strict 12.9M</th></tr>
-		</thead>
-		<tbody>
-			<tr><td>BLiMP (filtered)</td><td>67.4</td><td>74.8</td></tr>
-			<tr><td>BLiMP supplement</td><td>57.0</td><td>60.2</td></tr>
-			<tr><td>Entity tracking</td><td>17.9</td><td>15.8</td></tr>
-			<tr><td>COMPS</td><td>52.5</td><td>55.8</td></tr>
-			<tr><td>EWoK (fast subset)</td><td>53.9</td><td>54.7</td></tr>
-			<tr><td>GLUE mean (single run per task)</td><td>64.2</td><td>66.1</td></tr>
-		</tbody>
-	</table>
-	<p>
-		The full tables with majority-class baselines and limits are on the <a href={`${base}/paper/`}>Results</a> page.
-	</p>
-
-	<h2>What the experiments found</h2>
-	<ul>
-		<li>A 24-run screen of 20 factors, with dummy columns to estimate noise, then a 32-run factorial on the top five.</li>
-		<li>RMSNorm beats Dynamic Tanh, and Dynamic Tanh with AdamW collapses to chance.</li>
-		<li>Muon beats AdamW; a 16k vocabulary beats 4k; dropout 0.1 hurts.</li>
-		<li>A learned recency penalty and exclusive self attention each lower bits per character by about 0.005 on every seed, with no clear BLiMP change.</li>
-		<li>Cross attention to learned memory slots does not pay for its parameters.</li>
-		<li>Most of the benchmark gain came from more epochs and more parameters, not from architecture.</li>
-	</ul>
-	<p>See <a href={`${base}/findings/screen/`}>Screen</a> and <a href={`${base}/findings/attention/`}>Attention</a>.</p>
-
-	<h2>Download the weights</h2>
-	<table>
-		<thead>
-			<tr><th>Model</th><th>Size</th><th>Archive</th></tr>
-		</thead>
-		<tbody>
-			<tr><td>tinylm-small-3.7M</td><td>14 MB</td><td><a href={`${release}/tinylm-small-3.7M.tar.gz`}>tinylm-small-3.7M.tar.gz</a></td></tr>
-			<tr><td>tinylm-strict-12.9M</td><td>48 MB</td><td><a href={`${release}/tinylm-strict-12.9M.tar.gz`}>tinylm-strict-12.9M.tar.gz</a></td></tr>
-		</tbody>
-	</table>
-	<p>Checksums are in <a href={`${release}/SHA256SUMS`}>SHA256SUMS</a>. Usage is on the <a href={`${base}/models/`}>Models</a> page.</p>
-
-	<h2>Engineering</h2>
-	<p>
-		Pinned and checksummed data, no network at training time, atomic and fingerprinted checkpoints with exact
-		resume, strict types, warnings as errors, and about 475 tests including negative and property-based cases. A
-		review of the project's own engineering, with every finding and its fix, is on the
-		<a href={`${base}/review/`}>Review</a> page.
-	</p>
-
-	<h2>Not done</h2>
-	<p>
-		The MultiLingual 22M track and the full EWoK set were not run: both datasets are gated on Hugging Face and
-		need an account that has accepted their terms.
-	</p>
+<Base title="tinylm | small language models for BabyLM 2026 benchmark">
+	<section class="hero hero-home"><div class="hero-copy"><div class="eyebrow"><span class="status-dot"></span> Open research · BabyLM 2026</div><h1>Small models.<br /><em>Serious</em> measurement.</h1><p class="lead">tinylm is a reproducible lab for finding out how little language model you actually need. Two compact models, one Apple-silicon laptop, and an honest record of what worked — and what did not.</p><div class="hero-actions"><a class="button button-primary" href={`${base}/models/`}>Explore the models <span>→</span></a><a class="button button-quiet" href="https://github.com/sachncs/tinylm">View source <span>↗</span></a></div><div class="trust-line"><span>MIT licensed code</span><span>·</span><span>Offline after data prep</span><span>·</span><span>Test-first</span></div></div><div class="hero-visual" aria-label="A diagram showing a small language model experiment"><div class="visual-orbit orbit-one"></div><div class="visual-orbit orbit-two"></div><div class="visual-core"><div class="core-grid"></div><strong>tiny<br /><span>lm</span></strong><small>MEASURED / REPRODUCIBLE</small></div><div class="float-label label-top"><span>01</span> benchmark</div><div class="float-label label-bottom"><span>02</span> model size</div></div></section>
+	<section class="signal-strip"><div><span class="signal-number">3.7M</span><span class="signal-label">parameters in the smallest model</span></div><div><span class="signal-number">74.8</span><span class="signal-label">official BLiMP at 12.9M</span></div><div><span class="signal-number">475+</span><span class="signal-label">tests guarding the pipeline</span></div><div><span class="signal-number">0</span><span class="signal-label">network calls during training</span></div></section>
+	<section class="section-intro"><div class="section-kicker">01 / the release</div><div><h2>Two models. One clear question.</h2><p>Can a language model stay useful when you strip away scale, hype, and hidden dependencies? tinylm makes the experiment small enough to inspect end to end.</p></div></section>
+	<div class="cards model-cards"><div class="card model-card"><div class="card-top"><span class="model-tag">STRICT-SMALL</span><span class="model-index">01</span></div><h3>tinylm-small</h3><div class="big">3.7M <small>parameters</small></div><div class="score-row"><strong>67.4</strong><span>official BLiMP</span></div><p>10 epochs · 14.4M tokens · 45 min training</p><a href={`${base}/models/`}>Inspect the release <span>→</span></a></div><div class="card model-card featured"><div class="card-top"><span class="model-tag">STRICT</span><span class="model-index">02</span></div><h3>tinylm-strict</h3><div class="big">12.9M <small>parameters</small></div><div class="score-row"><strong>74.8</strong><span>official BLiMP</span></div><p>10 epochs · 137.7M tokens · 16 hr training</p><a href={`${base}/models/`}>Inspect the release <span>→</span></a></div><div class="card card-dark"><div class="card-top"><span class="model-tag">THE TARGET</span><span class="model-index">—</span></div><h3>90 BLiMP</h3><div class="big">not yet</div><p>That is the point. We publish the miss, the baselines, and the evidence so the next run starts from reality.</p><a href={`${base}/paper/`}>Read the results <span>→</span></a></div></div>
+	<section class="split-section"><div class="section-kicker">02 / the method</div><div class="method-grid"><div><h2>Small enough to understand.</h2><p>Every stage is explicit: pinned data, checksummed artifacts, typed boundaries, atomic checkpoints, and a test suite that treats failure as a first-class result.</p><a class="text-link" href={`${base}/architecture/`}>See the architecture <span>→</span></a></div><div class="method-list"><div><span>01</span><strong>Prepare</strong><p>Build offline token stores from pinned, verified data.</p></div><div><span>02</span><strong>Train</strong><p>Run exact, resumable experiments on one laptop.</p></div><div><span>03</span><strong>Evaluate</strong><p>Report the benchmark, the baselines, and the caveats.</p></div></div></div></section>
+	<section class="results-preview"><div class="section-kicker">03 / the evidence</div><div class="results-heading"><h2>What survived the screen.</h2><a class="text-link" href={`${base}/findings/screen/`}>All findings <span>→</span></a></div><p class="results-caption">Official evaluation pipeline · accuracy in percent</p><table><thead><tr><th>Task</th><th>Small 3.7M</th><th>Strict 12.9M</th></tr></thead><tbody><tr><td>BLiMP (filtered)</td><td>67.4</td><td>74.8</td></tr><tr><td>BLiMP supplement</td><td>57.0</td><td>60.2</td></tr><tr><td>Entity tracking</td><td>17.9</td><td>15.8</td></tr><tr><td>COMPS</td><td>52.5</td><td>55.8</td></tr><tr><td>EWoK (fast subset)</td><td>53.9</td><td>54.7</td></tr><tr><td>GLUE mean (single run per task)</td><td>64.2</td><td>66.1</td></tr></tbody></table><p class="table-footnote">Full tables, majority-class baselines, and limits live on the <a href={`${base}/paper/`}>results page</a>.</p></section>
+	<section class="open-section"><div class="open-copy"><div class="section-kicker">04 / open by default</div><h2>Built to be picked up.</h2><p>The code and documentation are MIT licensed. Reproduce a run, inspect a finding, or contribute a better one. The weights are separate: non-commercial research only because of the underlying training corpora.</p><div class="hero-actions"><a class="button button-primary" href="https://github.com/sachncs/tinylm">Open on GitHub <span>↗</span></a><a class="button button-quiet" href={`${base}/reproduce/`}>Reproduce a run <span>→</span></a></div></div><div class="open-terminal"><div class="terminal-bar"><span></span><span></span><span></span><b>quickstart</b></div><pre><code><span class="prompt">$</span> git clone github.com/sachncs/tinylm · <span class="prompt">$</span> uv sync --group official · <span class="prompt">$</span> uv run pytest</code></pre></div></section>
+	<section class="closing-note"><span class="status-dot"></span><p>Not the biggest model. Not the best score. A useful, inspectable starting point.</p><a href={`${base}/paper/`}>Read the full paper <span>→</span></a></section>
 </Base>

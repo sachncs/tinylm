@@ -1,15 +1,33 @@
 # tinylm
 
 [![CI](https://github.com/sachncs/tinylm/actions/workflows/ci.yml/badge.svg)](https://github.com/sachncs/tinylm/actions/workflows/ci.yml)
-[![Licence: MIT](https://img.shields.io/badge/licence-MIT-blue.svg)](LICENSE)
+[![Licence: MIT](https://img.shields.io/badge/code-MIT-c8f35b.svg)](LICENSE)
+[![Docs](https://img.shields.io/badge/docs-live-aabfff.svg)](https://sachncs.github.io/tinylm)
 
-Small language models (3.7M and 12.9M parameters) for the
-[BabyLM 2026](https://babylm.github.io) benchmark, built test-first, offline
-and reproducibly on one Apple-silicon laptop. The question: how small can a
-model be and still be accurate and precise, found by measurement rather than
-assumption.
+> Small models. Serious measurement.
 
-**Documentation site:** https://sachncs.github.io/tinylm
+tinylm is an open research project asking a practical question: how small can a
+language model be and still be accurate and precise? It releases two compact
+models (3.7M and 12.9M parameters) for the [BabyLM 2026](https://babylm.github.io)
+benchmark, built test-first, offline after data preparation, and reproducibly
+on one Apple-silicon laptop.
+
+**[Read the launch site](https://sachncs.github.io/tinylm)** · **[Browse the source](https://github.com/sachncs/tinylm)** · **[Reproduce a run](docs/reproduce.md)**
+
+This is a research release, not a claim of state-of-the-art performance. The
+project publishes its misses, baselines, limitations, and negative findings so
+that the next experiment starts from a complete trail of evidence.
+
+## Why this exists
+
+Large models can hide the relationship between a design choice and an outcome.
+tinylm keeps the system small enough to inspect end to end: pinned and
+checksummed data, explicit experiment manifests, atomic checkpoints, exact
+resume, strict types, and a test suite with more than 475 tests.
+
+The code is MIT licensed. The released model weights are **non-commercial
+research only** because the BabyLM training corpora include sources with
+non-commercial terms; see [the weights licence](docs/weights-license.md).
 
 ## Results
 
